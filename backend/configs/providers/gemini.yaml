@@ -1,0 +1,14 @@
+# Gemini provider configuration
+# Requires GOOGLE_API_KEY in .env (free at https://aistudio.google.com/apikey)
+# To activate: set `provider: gemini` in configs/app.yaml
+
+llm:
+  model: "gemini-2.0-flash"
+  temperature: 0.1
+  max_tokens: 1024
+  timeout_seconds: 30
+
+embedder:
+  model: "text-embedding-004"
+  dimension: 768
+  timeout_seconds: 15

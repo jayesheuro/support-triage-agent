@@ -1,0 +1,37 @@
+# Taxonomy — ShopLite support ticket classification
+# Full version built in Phase 3. This is a skeleton for Phase 1 config loading.
+# ENGINE CODE MUST NOT reference ShopLite specifics — only read from this file.
+
+categories:
+  - order_issue
+  - billing
+  - technical_support
+  - returns_refunds
+  - shipping
+  - account
+  - general
+
+priorities:
+  - low
+  - medium
+  - high
+  - critical
+
+# Categories eligible for auto-send once eval gate passes (Phase 6)
+# Conservative default: only low-risk categories
+auto_send_allowlist:
+  - general
+
+# Confidence threshold below which ticket bypasses resolver → pending_review
+# Overrides the value in app.yaml if set here
+confidence_threshold: 0.70
+
+# Routing: which team handles each category (informational — used in Phase 3+)
+routing:
+  order_issue: "fulfillment"
+  billing: "billing"
+  technical_support: "tech"
+  returns_refunds: "fulfillment"
+  shipping: "fulfillment"
+  account: "tech"
+  general: "frontline"

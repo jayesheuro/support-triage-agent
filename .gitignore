@@ -1,0 +1,36 @@
+# Secrets — NEVER commit
+.env
+
+# Backend runtime data
+backend/data/lancedb/
+backend/data/app.db
+backend/eval/reports/*
+!backend/eval/reports/.gitkeep
+
+# MLflow
+mlruns/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

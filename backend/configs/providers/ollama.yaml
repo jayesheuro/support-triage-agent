@@ -1,0 +1,18 @@
+# Ollama provider configuration
+# Ollama must be running locally: https://ollama.com
+# Pull required models:
+#   ollama pull llama3.2:latest      (chat)
+#   ollama pull nomic-embed-text     (embeddings)
+
+base_url: "http://localhost:11434"
+
+llm:
+  model: "llama3.2:latest"
+  temperature: 0.1          # low for deterministic triage/critic decisions
+  max_tokens: 1024
+  timeout_seconds: 120      # local inference can be slow on CPU
+
+embedder:
+  model: "nomic-embed-text"
+  dimension: 768
+  timeout_seconds: 30

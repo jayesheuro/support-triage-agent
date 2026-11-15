@@ -1,0 +1,30 @@
+# Provider: which LLM backend to use (ollama | gemini | bedrock)
+# Change this ONE line to swap providers — no code changes needed.
+provider: ollama
+
+# ── LLM call budget ──────────────────────────────────────────────────────────
+# Hard cap enforced in graph state (Phase 3). Breakdown:
+#   triage:   1 call + up to 2 retries on parse failure
+#   resolver: 1 call + up to 1 revision from critic
+#   critic:   1 call + up to 1 recheck after revision
+max_llm_calls_per_ticket: 6
+
+# ── Retry caps (structured-output parse failures) ────────────────────────────
+max_structured_output_retries: 2  # triage / critic parse failures
+max_revision_loops: 1             # resolver→critic revision cycles
+
+# ── Retrieval thresholds (Phase 2) ───────────────────────────────────────────
+# KB relevance score below this → kb_gap=true, ticket → pending_review
+relevance_threshold: 0.35
+
+# ── Triage confidence threshold ───────────────────────────────────────────────
+# confidence below this → skip resolver, ticket → pending_review
+confidence_threshold: 0.70
+
+# ── Auto-send master switch ───────────────────────────────────────────────────
+# Default: false. The onboarding eval gate (Phase 6) or an explicit admin
+# action flips this via the DB setting. Never set true here until eval passes.
+auto_send_enabled: false
+
+# ── App version (returned by /api/health) ────────────────────────────────────
+version: "0.1.0"

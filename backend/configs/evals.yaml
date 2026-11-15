@@ -1,0 +1,16 @@
+# Evaluation configuration — Phase 6
+# Skeleton only in Phase 1. Populated in Phase 6.
+
+golden_set:
+  path: "eval/golden/shoplite_v1.jsonl"
+  version: "v1"
+
+gate_thresholds:
+  triage_accuracy: 0.85       # min fraction correct on golden set
+  citation_hit_rate: 0.80     # fraction of drafts citing ≥1 valid KB article
+  critic_precision: 0.90      # critic raises violations only when real (Phase 6)
+  critic_recall: 0.85         # critic catches violations in red-team set
+
+mlflow:
+  tracking_uri: "sqlite:///data/mlruns.db"
+  experiment_name: "support-triage-evals"

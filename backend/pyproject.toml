@@ -1,0 +1,40 @@
+[project]
+name = "support-triage-backend"
+version = "0.1.0"
+description = "Support Triage Agent — FastAPI backend with multi-provider LLM abstraction"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.163.1",
+    "uvicorn[standard]>=0.54.0",
+    "pydantic>=2.14.3",
+    "pydantic-settings>=2.16.3",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.1.8",
+    "httpx>=0.28.1",
+    "tenacity>=9.2.1",
+    "google-genai>=1.2.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=1.5.0",
+    "ruff>=0.17.5",
+    "httpx>=0.28.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: network-dependent tests; auto-skipped when provider is unavailable",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP"]
+ignore = ["E501"]  # line length handled by formatter
