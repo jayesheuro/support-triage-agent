@@ -30,6 +30,10 @@ frontend/.vite/
 .DS_Store
 Thumbs.db
 
+# Local learning notes & study banks
+docs/learning/
+docs/question-bank/
+
 # IDE
 .vscode/
 .idea/
