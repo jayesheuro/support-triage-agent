@@ -57,6 +57,10 @@ class KBError(AppError):
     """Raised for knowledge-base ingestion or retrieval failures."""
 
 
+class KBDimensionMismatchError(KBError):
+    """Raised when existing vector store dimension does not match active embedder dimension."""
+
+
 class NotFoundError(AppError):
     """Raised when a requested resource does not exist."""
 
@@ -77,6 +81,7 @@ _STATUS_MAP: dict[type[AppError], int] = {
     ProviderUnavailableError: 503,
     ProviderError: 502,
     ParseError: 422,
+    KBDimensionMismatchError: 409,
     KBError: 500,
     NotFoundError: 404,
     ValidationError: 400,

@@ -73,9 +73,10 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     # ── Routers ─────────────────────────────────────────────────────────────
-    from app.api.routes import health  # noqa: PLC0415
+    from app.api.routes import health, kb  # noqa: PLC0415
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(kb.router, prefix="/api")
 
     # Placeholder routers — added in later phases
     # app.include_router(tickets.router, prefix="/api")

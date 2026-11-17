@@ -15,7 +15,7 @@ max_revision_loops: 1             # resolver→critic revision cycles
 
 # ── Retrieval thresholds (Phase 2) ───────────────────────────────────────────
 # KB relevance score below this → kb_gap=true, ticket → pending_review
-relevance_threshold: 0.35
+relevance_threshold: 0.50
 
 # ── Triage confidence threshold ───────────────────────────────────────────────
 # confidence below this → skip resolver, ticket → pending_review

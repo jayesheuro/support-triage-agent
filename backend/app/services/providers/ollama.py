@@ -116,6 +116,26 @@ class OllamaEmbedder(BaseEmbedder):
         raise ProviderError(f"Ollama embed returned unexpected format: {list(data.keys())}")
 
     def _embed_documents_impl(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        payload = {"model": self._model, "input": texts}
+        try:
+            with httpx.Client(timeout=self._timeout) as client:
+                resp = client.post(f"{self._base_url}/api/embed", json=payload)
+        except httpx.ConnectError as exc:
+            raise ProviderUnavailableError(
+                "Ollama is not running. Start it with: ollama serve"
+            ) from exc
+
+        if not resp.is_success:
+            raise ProviderError(
+                f"Ollama /api/embed error {resp.status_code}: {resp.text[:200]}"
+            )
+        data = resp.json()
+        embeddings = data.get("embeddings")
+        if embeddings and isinstance(embeddings, list):
+            return embeddings
+        # Fallback for older Ollama versions
         return [self._embed_single(t) for t in texts]
 
     def _embed_query_impl(self, text: str) -> list[float]:

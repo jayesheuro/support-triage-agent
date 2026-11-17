@@ -25,10 +25,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/kb/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Articles
+         * @description List all currently indexed articles in the Knowledge Base with chunk counts.
+         */
+        get: operations["list_articles_api_kb_articles_get"];
+        put?: never;
+        /**
+         * Upload Article
+         * @description Upload a new .md help article with YAML frontmatter.
+         *     Validates frontmatter, persists to data/kb/, and idempotently embeds into LanceDB.
+         */
+        post: operations["upload_article_api_kb_articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kb/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Article
+         * @description Remove an article and all its vector chunks from LanceDB and disk.
+         */
+        delete: operations["delete_article_api_kb_articles__article_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kb/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reindex Kb
+         * @description Trigger full idempotent re-indexing of all articles in data/kb/.
+         *     Unchanged articles are skipped unless force=true.
+         */
+        post: operations["reindex_kb_api_kb_reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kb/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Kb
+         * @description Debug / search-test endpoint for knowledge base retrieval.
+         *     Computes query embedding, searches nearest chunks in LanceDB, and evaluates relevance.
+         */
+        get: operations["search_kb_api_kb_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_upload_article_api_kb_articles_post */
+        Body_upload_article_api_kb_articles_post: {
+            /**
+             * File
+             * @description Markdown (.md) file with YAML frontmatter
+             */
+            file: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /**
          * HealthResponse
          * @description Shape of the /api/health response.
@@ -44,6 +144,131 @@ export interface components {
             embed_model: string;
             /** Version */
             version: string;
+        };
+        /**
+         * KBArticleResponse
+         * @description Metadata summary of an indexed Knowledge Base article.
+         */
+        KBArticleResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Category */
+            category: string;
+            /** Tags */
+            tags?: string[];
+            /** Chunk Count */
+            chunk_count: number;
+            /** Content Hash */
+            content_hash: string;
+            /** Last Indexed */
+            last_indexed: string;
+        };
+        /**
+         * KBDeleteResponse
+         * @description Response returned upon deleting an article and its vector embeddings.
+         */
+        KBDeleteResponse: {
+            /**
+             * Status
+             * @default deleted
+             */
+            status: string;
+            /** Article Id */
+            article_id: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * KBReindexResponse
+         * @description Summary metrics of a knowledge base re-indexing operation.
+         */
+        KBReindexResponse: {
+            /** Total Articles */
+            total_articles: number;
+            /** Indexed Articles */
+            indexed_articles: number;
+            /** Skipped Articles */
+            skipped_articles: number;
+            /** Total Chunks */
+            total_chunks: number;
+            /** Duration Sec */
+            duration_sec: number;
+        };
+        /**
+         * KBSearchResponse
+         * @description Search test response including relevance threshold and gap indicators.
+         */
+        KBSearchResponse: {
+            /** Query */
+            query: string;
+            /** Relevance Threshold */
+            relevance_threshold: number;
+            /** Has Kb Gap */
+            has_kb_gap: boolean;
+            /** Best Score */
+            best_score: number;
+            /** Results */
+            results: components["schemas"]["KBSearchResultItem"][];
+        };
+        /**
+         * KBSearchResultItem
+         * @description Single search result chunk with relevance score.
+         */
+        KBSearchResultItem: {
+            /** Id */
+            id: string;
+            /** Article Id */
+            article_id: string;
+            /** Title */
+            title: string;
+            /** Category */
+            category: string;
+            /** Chunk Index */
+            chunk_index: number;
+            /** Text */
+            text: string;
+            /** Score */
+            score: number;
+            /** Content Hash */
+            content_hash: string;
+            /** Tags */
+            tags?: string[];
+        };
+        /**
+         * KBUploadResponse
+         * @description Response returned upon successfully uploading and indexing an article.
+         */
+        KBUploadResponse: {
+            /**
+             * Status
+             * @default indexed
+             */
+            status: string;
+            /** Article Id */
+            article_id: string;
+            /** Title */
+            title: string;
+            /** Category */
+            category: string;
+            /** Chunks Created */
+            chunks_created: number;
+            /** Content Hash */
+            content_hash: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -70,6 +295,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    list_articles_api_kb_articles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KBArticleResponse"][];
+                };
+            };
+        };
+    };
+    upload_article_api_kb_articles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_article_api_kb_articles_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KBUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_article_api_kb_articles__article_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KBDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_kb_api_kb_reindex_post: {
+        parameters: {
+            query?: {
+                /** @description Force re-embedding of unchanged articles */
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KBReindexResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_kb_api_kb_search_get: {
+        parameters: {
+            query: {
+                /** @description Search query or customer question */
+                q: string;
+                /** @description Maximum chunks to retrieve */
+                top_k?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KBSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

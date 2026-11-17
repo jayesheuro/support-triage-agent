@@ -100,3 +100,82 @@ We implement automated TypeScript type generation using `openapi-typescript`. Ru
 **Negative / Tradeoffs:**
 - Requires the backend to be running (or an exported `openapi.json` file) when regenerating types.
 - Requires awareness of Windows Node IPv6 resolution quirks (`127.0.0.1` vs `localhost`).
+
+---
+
+## ADR-005: Article-Aware Heading-Based Chunking Strategy
+
+- **Status:** Accepted
+- **Date:** 2026-11-17
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Customer support help center articles contain precise, structured operational policies (e.g., return windows, fee schedules, refund dollar caps, and step-by-step instructions). Splitting text purely on fixed character or token counts (e.g., 500 characters) frequently separates operational conditions from their quantitative limits, leading to inaccurate responses or hallucinated policies. Furthermore, isolated subsections (e.g., "Processing Timelines: 3 to 5 business days") lose semantic meaning when detached from their parent article title.
+
+### Decision
+We implement `ArticleAwareChunker` in `app/services/kb/chunkers.py`:
+- Documents are split along markdown heading boundaries (`#`, `##`, `###`).
+- Every chunk prepends a full breadcrumb header (e.g., `# Returns Policy > ## Processing Timelines`) to ground the dense vector in its domain entity.
+- Sections exceeding `max_chars: 1500` (~350–400 words) are sub-split along paragraph boundaries (`\n\n`) with a sliding window overlap of `overlap_chars: 200` to preserve cross-paragraph context.
+
+### Consequences
+**Positive:**
+- Guaranteed semantic boundary preservation: rules, conditions, and dollar limits remain in the same chunk.
+- Improved retrieval precision: breadcrumbs provide topical context for brief subsection paragraphs.
+- Deterministic chunk boundaries and stable SHA-256 hashes per chunk.
+
+**Negative / Tradeoffs:**
+- Assumes structured markdown input; documents lacking markdown headers fall back to single-chunk or paragraph-split representations.
+
+---
+
+## ADR-006: Relevance-Threshold Gating as an Abstention Mechanism
+
+- **Status:** Accepted
+- **Date:** 2026-11-17
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+In customer support automation, hallucinations are most dangerous when an LLM attempts to answer out-of-domain or ungrounded questions. Unthresholded top-$k$ nearest neighbor retrieval always returns candidate chunks regardless of how distant they are in vector space. If a customer asks about an uncovered topic, an agent given low-similarity chunks will often attempt to synthesize an answer, risking unauthorized commitments.
+
+### Decision
+We implement explicit relevance-threshold gating in `app/services/kb/retriever.py`:
+- Cosine similarity scores ($1 - \text{distance}$) are computed for all candidate chunks.
+- If the best score falls below `relevance_threshold` (configured at $0.50$ in `configs/app.yaml`), or if no chunks match, the retriever sets `has_kb_gap = True`.
+- The downstream Resolver agent (Phase 3) uses this signal to abstain from drafting, mark the ticket as `pending_review`, and route directly to human support.
+
+### Consequences
+**Positive:**
+- Fail-safe abstention: prevents the system from guessing or fabricating support policies.
+- Quantifiable product signal: KB gap telemetry highlights gaps in documentation that inform the knowledge base roadmap.
+- Tunable via YAML: threshold can be calibrated without modifying agent or retrieval code.
+
+**Negative / Tradeoffs:**
+- Poorly phrased or highly idiomatic customer queries may trigger false-positive gaps if their vector similarity drops below the threshold, requiring review in the human queue.
+
+---
+
+## ADR-007: Content-Hash Based Idempotency for Vector Ingestion
+
+- **Status:** Accepted
+- **Date:** 2026-11-17
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+In multi-tenant or enterprise environments, help center documents are frequently re-scanned or re-indexed via automated pipelines or administrator uploads. Re-embedding an entire knowledge base on every ingestion cycle causes unnecessary compute overhead, slow startup times, external API rate-limit consumption, and index write lock contention.
+
+### Decision
+We implement article-level content hashing using SHA-256:
+- The loader computes a SHA-256 hash of the complete raw markdown text (`content_hash`).
+- `KBVectorStore` tracks indexed article hashes in `kb_metadata.json` alongside the LanceDB dataset.
+- On ingestion, articles with matching hashes are skipped entirely (0 calls, 0.00 s).
+- Articles with changed hashes trigger an atomic replacement: previous chunks for that `article_id` are deleted from LanceDB and the updated chunks are embedded and inserted.
+
+### Consequences
+**Positive:**
+- Sub-second re-index runs when articles are unchanged (20 articles evaluated and skipped in 0.00 s).
+- Granular updates: modifying one article only embeds that article's chunks, leaving the rest untouched.
+- Clean delete and upload synchronization between disk (`data/kb/`) and the vector database.
+
+**Negative / Tradeoffs:**
+- Metadata tracking file must remain synchronized with the LanceDB table; if the metadata file is manually deleted, the next run re-indexes all articles.
