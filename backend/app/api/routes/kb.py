@@ -11,16 +11,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
 from app.core.errors import NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.services.kb.loaders import KBArticle, parse_article_text
 from app.services.kb.pipeline import IngestionSummary, KBPipeline
 from app.services.kb.retriever import KBRetriever, RetrievedChunk
-from app.services.kb.vector_store import ArticleSummary, KBVectorStore
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/kb", tags=["knowledge-base"])
@@ -152,7 +150,7 @@ async def upload_article(
     article.filepath = target_path
 
     # Ingest the parsed article
-    summary = pipeline.ingest_articles([article], force=True)
+    _ = pipeline.ingest_articles([article], force=True)
     
     # Retrieve updated summary to get chunk count
     articles = pipeline.vector_store.list_articles()

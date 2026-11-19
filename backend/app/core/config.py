@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ class AppConfig(BaseModel):
     max_llm_calls_per_ticket: int = 6
     max_structured_output_retries: int = 2
     max_revision_loops: int = 1
-    relevance_threshold: float = 0.35
+    relevance_threshold: float = 0.50
     confidence_threshold: float = 0.70
     auto_send_enabled: bool = False
     version: str = "0.1.0"
@@ -85,14 +85,46 @@ class AppConfig(BaseModel):
         return v
 
 
+class CategoryInfo(BaseModel):
+    """Metadata for a ticket classification category."""
+
+    description: str
+    routing: str
+
+
+class PriorityInfo(BaseModel):
+    """Metadata and rules for a ticket priority level."""
+
+    description: str
+    rules: list[str] = Field(default_factory=list)
+
+
 class TaxonomyConfig(BaseModel):
     """Taxonomy settings from configs/taxonomy.yaml."""
 
-    categories: list[str] = []
-    priorities: list[str] = []
-    auto_send_allowlist: list[str] = []
+    categories: dict[str, CategoryInfo] | list[str] = Field(default_factory=list)
+    priorities: dict[str, PriorityInfo] | list[str] = Field(default_factory=list)
+    auto_send_allowlist: list[str] = Field(default_factory=list)
+    never_auto_send: list[str] = Field(default_factory=list)
     confidence_threshold: float = 0.70
-    routing: dict[str, str] = {}
+
+    @property
+    def category_names(self) -> list[str]:
+        if isinstance(self.categories, dict):
+            return list(self.categories.keys())
+        return list(self.categories)
+
+    @property
+    def priority_names(self) -> list[str]:
+        if isinstance(self.priorities, dict):
+            return list(self.priorities.keys())
+        return list(self.priorities)
+
+    @property
+    def routing(self) -> dict[str, str]:
+        if isinstance(self.categories, dict):
+            return {k: v.routing for k, v in self.categories.items()}
+        return {}
 
 
 # ---------------------------------------------------------------------------

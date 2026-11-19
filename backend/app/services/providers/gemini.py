@@ -8,6 +8,8 @@ and client.models.embed_content(). Requires GOOGLE_API_KEY in .env.
 
 from __future__ import annotations
 
+from typing import Any, NoReturn
+
 from app.core.errors import ProviderAuthError, ProviderError, ProviderRateLimitError
 from app.core.logging import get_logger
 from app.services.providers.base import BaseEmbedder, BaseLLM, LLMResponse
@@ -38,7 +40,7 @@ class GeminiLLM(BaseLLM):
         self._timeout = timeout_seconds
 
     def _generate_impl(
-        self, messages: list[dict[str, str]], **kwargs: object
+        self, messages: list[dict[str, str]], **kwargs: Any
     ) -> LLMResponse:
         from google.genai import types  # type: ignore[import]
 
@@ -93,7 +95,7 @@ class GeminiLLM(BaseLLM):
             total_tokens=prompt_tokens + completion_tokens,
         )
 
-    def _translate_error(self, exc: Exception) -> None:
+    def _translate_error(self, exc: Exception) -> NoReturn:
         """Map Gemini SDK exceptions to our hierarchy and re-raise."""
         msg = str(exc)
         if "API_KEY" in msg or "403" in msg or "401" in msg:

@@ -12,6 +12,7 @@ is not covered by integration tests.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from app.core.errors import ProviderAuthError, ProviderError
 from app.core.logging import get_logger
@@ -55,7 +56,7 @@ class BedrockLLM(BaseLLM):
         self._timeout = timeout_seconds
 
     def _generate_impl(
-        self, messages: list[dict[str, str]], **kwargs: object
+        self, messages: list[dict[str, str]], **kwargs: Any
     ) -> LLMResponse:
         # Claude on Bedrock uses the Messages API
         system_text = ""

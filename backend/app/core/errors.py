@@ -53,6 +53,22 @@ class ParseError(AppError):
     """Raised when structured LLM output cannot be parsed after max retries."""
 
 
+class StructuredOutputError(AppError):
+    """Raised when structured LLM output fails validation after max retries."""
+
+    def __init__(
+        self,
+        message: str,
+        attempts: int,
+        last_error: str | None = None,
+        raw_response: str | None = None,
+    ) -> None:
+        super().__init__(message, detail=last_error)
+        self.attempts = attempts
+        self.last_error = last_error
+        self.raw_response = raw_response
+
+
 class KBError(AppError):
     """Raised for knowledge-base ingestion or retrieval failures."""
 
@@ -81,6 +97,7 @@ _STATUS_MAP: dict[type[AppError], int] = {
     ProviderUnavailableError: 503,
     ProviderError: 502,
     ParseError: 422,
+    StructuredOutputError: 422,
     KBDimensionMismatchError: 409,
     KBError: 500,
     NotFoundError: 404,

@@ -1,0 +1,92 @@
+[
+  {
+    "customer_name": "Marcus Vance",
+    "channel": "web",
+    "subject": "Tracking status for order #10821",
+    "body": "Hi, I ordered a winter coat 3 days ago (order #10821) and received a shipping confirmation, but the tracking number still says 'Label Created'. When will it actually move?"
+  },
+  {
+    "customer_name": "Elena Rostova",
+    "channel": "email",
+    "subject": "Delivery timeline inquiry",
+    "body": "Hello ShopLite team! I placed order #11450 this morning with expedited shipping. Could you confirm if it will arrive by Friday before my trip?"
+  },
+  {
+    "customer_name": "David Sterling",
+    "channel": "web",
+    "subject": "DOUBLE CHARGE ON MY CREDIT CARD! FIX NOW",
+    "body": "I was charged twice ($89.99 each) for order #9941! Fix this immediately and refund the duplicate charge or I am canceling my account, deleting the app, and reporting fraud to my bank!"
+  },
+  {
+    "customer_name": "Sarah Jenkins",
+    "channel": "email",
+    "subject": "Request for official invoice",
+    "body": "Hello, could you please email me a formal PDF invoice with tax breakdown for my purchase #8821? I need it for business expense reimbursement."
+  },
+  {
+    "customer_name": "Carlos Gomez",
+    "channel": "chat",
+    "subject": "AeroFit Earbuds water resistance rating",
+    "body": "Hi there, does the AeroFit Pro earbud set include small ear tips in the box? Also, are they safe for intense running in the rain (IPX rating)?"
+  },
+  {
+    "customer_name": "Amina Patel",
+    "channel": "web",
+    "subject": "ProSound speaker stereo pairing question",
+    "body": "I recently purchased the ProSound Max speaker and love it! Can I pair two of them together via Bluetooth for true left/right stereo sound?"
+  },
+  {
+    "customer_name": "Thomas Reed",
+    "channel": "web",
+    "subject": "Cannot log in - reset email not arriving",
+    "body": "I have been locked out of my account since yesterday. I clicked 'Forgot Password' three times, but no email ever arrives. Checked spam as well. Please help."
+  },
+  {
+    "customer_name": "Sophia Lin",
+    "channel": "web",
+    "subject": "How to enable Two-Factor Authentication",
+    "body": "Hi, where in the user settings menu can I configure an authenticator app (2FA) for added security on my ShopLite login?"
+  },
+  {
+    "customer_name": "Brian Kelly",
+    "channel": "web",
+    "subject": "Checkout page crashes on iOS Safari with Apple Pay",
+    "body": "Whenever I tap the Apple Pay button on checkout using iOS 18 Safari, the entire tab freezes and reloads with an error. Steps to reproduce: add item, cart, tap Apple Pay."
+  },
+  {
+    "customer_name": "Rachel Adams",
+    "channel": "email",
+    "subject": "Broken image links on homepage banner",
+    "body": "Hi, just letting you know the clearance sale banner images on your homepage are showing 404 broken icons on Chrome desktop."
+  },
+  {
+    "customer_name": "Oliver Twist",
+    "channel": "web",
+    "subject": "Love the biodegradable packaging!",
+    "body": "I just received my package and wanted to share positive feedback: the zero-plastic compostable packaging is incredible. Keep it up!"
+  },
+  {
+    "customer_name": "Janet Morris",
+    "channel": "email",
+    "subject": "Disappointed with transit delay",
+    "body": "My package took 14 days to arrive instead of the promised 3-5 days. The product is fine, but the carrier delay made me miss a birthday."
+  },
+  {
+    "customer_name": "Kevin Wright",
+    "channel": "chat",
+    "subject": "Package marked delivered but not on porch",
+    "body": "The carrier marked tracking as 'Delivered to front door' an hour ago, but there is no package anywhere on my porch. I checked with both my neighbors."
+  },
+  {
+    "customer_name": "Gregory House",
+    "channel": "web",
+    "subject": "In-store vintage bicycle repair service at Chicago showroom?",
+    "body": "Do your downtown Chicago retail stores offer walk-in mechanical repair and custom tune-ups for imported 1980s French touring bicycles? If so, what are your hourly shop rates?"
+  },
+  {
+    "customer_name": "Anonymous",
+    "channel": "api",
+    "subject": "???",
+    "body": "qwertyuiop asdfghjkl zxcvbnm 12345 !@#$%^&*()_+ ??? blurp test test"
+  }
+]

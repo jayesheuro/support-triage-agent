@@ -4,12 +4,12 @@
 #   ollama pull llama3.2:latest      (chat)
 #   ollama pull nomic-embed-text     (embeddings)
 
-base_url: "http://localhost:11434"
+base_url: "http://127.0.0.1:11434"
 
 llm:
   model: "llama3.2:latest"
   temperature: 0.1          # low for deterministic triage/critic decisions
-  max_tokens: 1024
+  max_tokens: 300
   timeout_seconds: 120      # local inference can be slow on CPU
 
 embedder:

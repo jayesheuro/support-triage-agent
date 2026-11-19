@@ -68,8 +68,18 @@ class TestTaxonomyConfig:
         assert cfg.confidence_threshold == 0.70
 
     def test_auto_send_allowlist_is_list(self) -> None:
-        cfg = TaxonomyConfig(auto_send_allowlist=["general"])
-        assert "general" in cfg.auto_send_allowlist
+        cfg = TaxonomyConfig(auto_send_allowlist=["order_status"])
+        assert "order_status" in cfg.auto_send_allowlist
+
+    def test_load_real_taxonomy_yaml(self) -> None:
+        raw = _load_yaml("configs/taxonomy.yaml")
+        cfg = TaxonomyConfig(**raw)
+        assert "order_status" in cfg.category_names
+        assert "refund_billing" in cfg.category_names
+        assert "account_access" in cfg.never_auto_send
+        assert cfg.routing["refund_billing"] == "billing"
+        assert "P1" in cfg.priority_names
+        assert cfg.confidence_threshold == 0.70
 
 
 class TestLoadYaml:

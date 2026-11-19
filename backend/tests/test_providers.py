@@ -132,28 +132,28 @@ class TestFactory:
 
     def test_factory_ollama_builds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Factory should produce OllamaLLM/OllamaEmbedder for provider=ollama."""
-        from app.services.providers.factory import get_providers
+        from app.services.providers.factory import clear_provider_cache, get_providers
         from app.services.providers.ollama import OllamaEmbedder, OllamaLLM
 
         settings = self._make_settings("ollama", monkeypatch)
         # Clear the lru_cache so our fake settings take effect
-        get_providers.cache_clear()
+        clear_provider_cache()
         name, llm, embedder = get_providers(settings=settings)
         assert name == "ollama"
         assert isinstance(llm, OllamaLLM)
         assert isinstance(embedder, OllamaEmbedder)
-        get_providers.cache_clear()  # clean up
+        clear_provider_cache()  # clean up
 
     def test_factory_gemini_requires_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Factory should raise ConfigError for gemini without API key."""
         from app.core.errors import ConfigError
-        from app.services.providers.factory import get_providers
+        from app.services.providers.factory import clear_provider_cache, get_providers
 
         settings = self._make_settings("gemini", monkeypatch)
-        get_providers.cache_clear()
+        clear_provider_cache()
         with pytest.raises(ConfigError, match="GOOGLE_API_KEY"):
             get_providers(settings=settings)
-        get_providers.cache_clear()
+        clear_provider_cache()
 
     def test_factory_unknown_provider_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Factory must raise ConfigError for unknown provider names."""
@@ -167,13 +167,13 @@ class TestFactory:
     def test_factory_bedrock_requires_creds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Factory should raise ConfigError for bedrock without AWS creds."""
         from app.core.errors import ConfigError
-        from app.services.providers.factory import get_providers
+        from app.services.providers.factory import clear_provider_cache, get_providers
 
         settings = self._make_settings("bedrock", monkeypatch)
-        get_providers.cache_clear()
+        clear_provider_cache()
         with pytest.raises(ConfigError, match="AWS"):
             get_providers(settings=settings)
-        get_providers.cache_clear()
+        clear_provider_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +193,8 @@ def _ollama_available() -> bool:
 @pytest.mark.skipif(not _ollama_available(), reason="Ollama not running")
 class TestOllamaIntegration:
     def test_llm_generate(self) -> None:
-        from app.services.providers.factory import get_providers, get_llm
-        get_providers.cache_clear()
+        from app.services.providers.factory import clear_provider_cache, get_llm, get_providers
+        clear_provider_cache()
         llm = get_llm()
         result = llm.generate([
             {"role": "system", "content": "Reply with exactly the word: OK"},
@@ -203,12 +203,12 @@ class TestOllamaIntegration:
         assert isinstance(result.text, str)
         assert len(result.text) > 0
         assert result.total_tokens > 0
-        get_providers.cache_clear()
+        clear_provider_cache()
 
     def test_embedder_dimension(self) -> None:
-        from app.services.providers.factory import get_embedder, get_providers
-        get_providers.cache_clear()
+        from app.services.providers.factory import clear_provider_cache, get_embedder, get_providers
+        clear_provider_cache()
         embedder = get_embedder()
         vec = embedder.embed_query("test embedding")
         assert len(vec) == embedder.dimension
-        get_providers.cache_clear()
+        clear_provider_cache()

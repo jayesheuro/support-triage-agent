@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
+from app.db import init_db
 
 # ---------------------------------------------------------------------------
 # Logging must be configured before anything else logs
@@ -29,6 +30,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    init_db()
     logger.info(
         "App started",
         extra={
@@ -73,10 +75,11 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     # ── Routers ─────────────────────────────────────────────────────────────
-    from app.api.routes import health, kb  # noqa: PLC0415
+    from app.api.routes import health, kb, tickets  # noqa: PLC0415
 
     app.include_router(health.router, prefix="/api")
     app.include_router(kb.router, prefix="/api")
+    app.include_router(tickets.router, prefix="/api")
 
     # Placeholder routers — added in later phases
     # app.include_router(tickets.router, prefix="/api")

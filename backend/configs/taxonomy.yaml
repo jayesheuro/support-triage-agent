@@ -1,37 +1,53 @@
-# Taxonomy — ShopLite support ticket classification
-# Full version built in Phase 3. This is a skeleton for Phase 1 config loading.
-# ENGINE CODE MUST NOT reference ShopLite specifics — only read from this file.
+# Taxonomy — ShopLite support ticket classification (Phase 3 Full Version)
+# ENGINE CODE MUST NOT reference ShopLite specifics — only read from this configuration.
 
+# Categories with description and routing queue
 categories:
-  - order_issue
-  - billing
-  - technical_support
-  - returns_refunds
-  - shipping
-  - account
-  - general
+  order_status:
+    description: "Tracking, shipment delays, delivery confirmation, missing packages, order modifications."
+    routing: "fulfillment"
+  refund_billing:
+    description: "Refund requests, duplicate charges, payment failures, invoice inquiries, discount code errors."
+    routing: "billing"
+  product_question:
+    description: "Product specifications, compatibility, usage instructions, stock availability, sizing."
+    routing: "support"
+  account_access:
+    description: "Password reset, login difficulties, 2FA issues, account security, profile updates."
+    routing: "security"
+  bug_report:
+    description: "Website glitches, checkout crashes, mobile app errors, broken links, performance bugs."
+    routing: "engineering"
+  feedback_other:
+    description: "General feedback, complaints not tied to orders/billing, feature requests, partnership inquiries."
+    routing: "frontline"
 
+# Priorities (P1 - Urgent/Critical, P2 - Standard, P3 - Low)
 priorities:
-  - low
-  - medium
-  - high
-  - critical
+  P1:
+    description: "Urgent/Critical — immediate response required."
+    rules:
+      - "churn_risk is high OR (sentiment is angry AND category is refund_billing)"
+      - "Systemic bug report affecting checkout or security vulnerabilities"
+  P2:
+    description: "Standard — normal business response timeline."
+    rules:
+      - "order_status or refund_billing with neutral or slightly frustrated sentiment"
+      - "account_access issues without immediate security breach"
+  P3:
+    description: "Low — informational or general inquiry."
+    rules:
+      - "product_question, feedback_other, or positive feedback"
 
 # Categories eligible for auto-send once eval gate passes (Phase 6)
-# Conservative default: only low-risk categories
 auto_send_allowlist:
-  - general
+  - order_status
+  - product_question
+
+# Categories that MUST NEVER be auto-sent, even if eval gate passes
+never_auto_send:
+  - refund_billing
+  - account_access
 
 # Confidence threshold below which ticket bypasses resolver → pending_review
-# Overrides the value in app.yaml if set here
 confidence_threshold: 0.70
-
-# Routing: which team handles each category (informational — used in Phase 3+)
-routing:
-  order_issue: "fulfillment"
-  billing: "billing"
-  technical_support: "tech"
-  returns_refunds: "fulfillment"
-  shipping: "fulfillment"
-  account: "tech"
-  general: "frontline"

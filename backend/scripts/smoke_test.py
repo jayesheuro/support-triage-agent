@@ -14,13 +14,14 @@ Exits with code 0 on success, 1 on failure.
 
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
 
 # Ensure UTF-8 output on Windows consoles
-if hasattr(sys.stdout, "reconfigure"):
+if isinstance(sys.stdout, io.TextIOWrapper):
     sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
+if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
 # Add backend/ to sys.path so `app.*` imports work when run as a script

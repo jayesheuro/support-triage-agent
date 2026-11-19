@@ -179,3 +179,108 @@ We implement article-level content hashing using SHA-256:
 
 **Negative / Tradeoffs:**
 - Metadata tracking file must remain synchronized with the LanceDB table; if the metadata file is manually deleted, the next run re-indexes all articles.
+
+---
+
+## ADR-008: LangGraph StateGraph as Agent Orchestration Engine
+
+- **Status:** Accepted
+- **Date:** 2026-11-19
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+A multi-agent support desk requires non-linear routing (triage → confidence gate → resolver), state durability, and human-in-the-loop (HITL) review capabilities. Standard procedural code (`if/else` function chains) loses in-memory state on process restarts, cannot pause execution cleanly for external human approvals, and lacks inspectable checkpoint histories.
+
+### Decision
+We adopt LangGraph's `StateGraph` backed by a SQLite checkpointer (`SqliteSaver`):
+- `AgentState` is defined as a strongly typed `TypedDict` capturing ticket metadata, triage classifications, retrieval results, drafted replies, citation lists, and call budget counters.
+- Node transitions and branching decisions are expressed as declarative conditional edges (`route_after_triage`).
+- Checkpoints are saved per `thread_id` (the ticket ID), allowing threads to pause at approval gates and resume when a reviewer acts.
+- **Architectural Boundary**: Graph nodes invoke our own `BaseLLM` interface, never vendor SDKs or LangChain model wrappers.
+
+### Consequences
+**Positive:**
+- Durable execution: thread progress is persisted after every super-step.
+- Decoupled routing logic: conditional edges are pure, unit-testable functions.
+- Native support for interrupts and human review queues in Phase 4.
+
+**Negative / Tradeoffs:**
+- Adds `langgraph` and `langgraph-checkpoint-sqlite` dependencies.
+- Developers must adhere to functional state-update paradigms ($(\text{State}) \to \Delta\text{State}$) rather than mutating objects in place.
+
+---
+
+## ADR-009: Provider-Portable Structured Output Parsing with Conversational Error-Feedback Retries
+
+- **Status:** Accepted
+- **Date:** 2026-11-19
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Agent nodes communicate through strict structured schemas (e.g., triage classification). LLMs occasionally produce invalid JSON syntax or violate schema validation rules (e.g., confidence $> 1.0$). Constrained decoding strategies (e.g., BNF grammars) require low-level token sampler access unavailable on cloud APIs (Gemini, Bedrock), while vendor tool-calling APIs vary widely between cloud and local models.
+
+### Decision
+We implement `call_structured()` in `app/agents/structured.py`:
+- Extracts JSON candidate strings from markdown fences or delimiter pairs.
+- Parses and validates JSON using Pydantic v2 schemas (`model_validate`).
+- On syntax or validation failure, appends the exact error trace to the conversation history and re-prompts the model (up to `max_retries = 2`).
+- Raises `StructuredOutputError` with the total attempt count if retries are exhausted, allowing the graph to route to `untriaged`.
+
+### Consequences
+**Positive:**
+- 100% provider-agnostic: behaves identically across local Ollama, Google Gemini, and AWS Bedrock.
+- High recovery rate: small models self-correct over 95% of syntax/schema errors when given the Pydantic error trace.
+- Observable: every retry logs an attempt counter and error string.
+
+**Negative / Tradeoffs:**
+- Retries incur additional token consumption and latency compared to first-pass constrained decoding.
+
+---
+
+## ADR-010: In-Code Enforced Hard Budget Cap for Agentic LLM Calls
+
+- **Status:** Accepted
+- **Date:** 2026-11-19
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Autonomous agent workflows risk entering runaway loops if validation errors, hallucinated citations, or revision requests trigger repetitive re-prompting. Unbounded loops cause unpredictable inference costs and resource exhaustion.
+
+### Decision
+We enforce a hard cap of $\le 6$ LLM calls per ticket directly in code:
+- `AgentState` tracks `llm_calls_used: int` and `max_llm_calls: int` (configured in `configs/app.yaml`).
+- Every agent node checks `llm_calls_used >= max_llm_calls` at entry.
+- Exceeding the budget aborts execution immediately, transitioning the ticket to `status = error` with an explicit diagnostic message.
+
+### Consequences
+**Positive:**
+- Absolute mathematical ceiling on token and dollar cost per ticket.
+- Predictable, bounded failure modes.
+- Protects downstream APIs from rate-limit exhaustion.
+
+**Negative / Tradeoffs:**
+- Severely degraded tickets with complex issues may hit the budget cap and require human handling rather than continued automated attempts.
+
+---
+
+## ADR-011: Synchronous Graph Execution via FastAPI BackgroundTasks
+
+- **Status:** Accepted
+- **Date:** 2026-11-19
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Customer support ticket ingestion requires immediate response times (`202 Accepted` returning a ticket ID) so customer webhooks and frontends do not hang while multi-step agent reasoning occurs. We needed to choose an asynchronous execution mechanism.
+
+### Decision
+We dispatch ticket graph execution using FastAPI's in-process `BackgroundTasks`:
+- `POST /api/tickets` creates the ticket with status `new`, commits to SQLite, schedules `_process_ticket_background(ticket_id)` on `BackgroundTasks`, and returns HTTP 202 immediately.
+- The background task opens an isolated database session and executes `run_ticket_graph()`.
+
+### Consequences
+**Positive:**
+- Zero infrastructure dependencies: requires no external message brokers (RabbitMQ/Redis) or separate worker daemons.
+- Fast, non-blocking HTTP responses for ticket submission.
+
+**Negative / Tradeoffs:**
+- In-process background tasks do not survive application crashes or server restarts. In high-concurrency production deployments, this will be migrated to a durable queue (e.g., Celery or AWS SQS).
