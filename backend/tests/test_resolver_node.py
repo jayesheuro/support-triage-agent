@@ -10,6 +10,7 @@ Uses FakeLLM and a lightweight mock retriever — zero external dependencies.
 from __future__ import annotations
 
 from unittest.mock import MagicMock
+
 from app.agents.nodes.resolver import extract_citations, resolver_node
 from app.agents.state import AgentState
 from app.db.enums import TicketStatus

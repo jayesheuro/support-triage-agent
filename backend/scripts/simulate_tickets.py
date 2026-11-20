@@ -69,6 +69,7 @@ def run_simulation(
         client = httpx.Client(base_url=base_url, timeout=30.0)
     else:
         from fastapi.testclient import TestClient
+
         from app.main import app
         client = TestClient(app)
 

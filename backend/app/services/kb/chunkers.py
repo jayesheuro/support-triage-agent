@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+
 from pydantic import BaseModel, Field
 
 from app.services.kb.loaders import KBArticle
@@ -55,7 +56,7 @@ class ArticleAwareChunker:
         Split a KBArticle into a sequence of contextual KBChunk objects.
         """
         raw_sections = self._split_by_headings(article.content, default_title=article.title)
-        
+
         # Merge very small sections or sub-split very large sections
         processed_texts: list[str] = []
         current_buffer = ""
@@ -123,7 +124,7 @@ class ArticleAwareChunker:
             return [(f"# {default_title}", markdown_text.strip())]
 
         sections: list[tuple[str, str]] = []
-        
+
         # Preamble before first heading if any
         if matches[0].start() > 0:
             preamble = markdown_text[: matches[0].start()].strip()

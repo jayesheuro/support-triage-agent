@@ -142,7 +142,7 @@ async def upload_article(
     article: KBArticle = parse_article_text(raw_text, source_name=file.filename)
 
     pipeline = KBPipeline.create_default()
-    
+
     # Save the file to data/kb/{article.id}.md to keep filesystem synchronized
     _KB_DIR.mkdir(parents=True, exist_ok=True)
     target_path = _KB_DIR / f"{article.id}.md"
@@ -151,7 +151,7 @@ async def upload_article(
 
     # Ingest the parsed article
     _ = pipeline.ingest_articles([article], force=True)
-    
+
     # Retrieve updated summary to get chunk count
     articles = pipeline.vector_store.list_articles()
     match = next((a for a in articles if a.id == article.id), None)
@@ -174,7 +174,7 @@ def delete_article(article_id: str) -> KBDeleteResponse:
     """
     pipeline = KBPipeline.create_default()
     deleted = pipeline.vector_store.delete_article(article_id)
-    
+
     # Also delete corresponding file if on disk
     file_path = _KB_DIR / f"{article_id}.md"
     file_removed = False
@@ -225,7 +225,7 @@ def search_kb(
     """
     retriever = KBRetriever.create_default()
     chunks: list[RetrievedChunk] = retriever.retrieve(query=q, top_k=top_k)
-    
+
     has_gap = retriever.has_kb_gap(chunks)
     best_score = retriever.best_score(chunks)
 

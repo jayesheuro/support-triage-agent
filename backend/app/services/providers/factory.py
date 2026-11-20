@@ -8,8 +8,6 @@ Returns a cached (provider_name, BaseLLM, BaseEmbedder) tuple.
 
 from __future__ import annotations
 
-import functools
-
 from app.core.config import Settings, get_settings
 from app.core.errors import ConfigError
 from app.core.logging import get_logger

@@ -7,9 +7,6 @@ YAML files so no real configs are required.
 
 from __future__ import annotations
 
-import textwrap
-from pathlib import Path
-
 import pytest
 
 from app.core.config import AppConfig, ProviderConfig, TaxonomyConfig, _load_yaml
@@ -44,7 +41,7 @@ class TestAppConfig:
 
 class TestProviderConfig:
     def test_ollama_no_base_url_ok(self) -> None:
-        from app.core.config import LLMConfig, EmbedderConfig
+        from app.core.config import EmbedderConfig, LLMConfig
         cfg = ProviderConfig(
             llm=LLMConfig(model="llama3.2:latest"),
             embedder=EmbedderConfig(model="nomic-embed-text"),
@@ -52,7 +49,7 @@ class TestProviderConfig:
         assert cfg.base_url is None
 
     def test_ollama_with_base_url(self) -> None:
-        from app.core.config import LLMConfig, EmbedderConfig
+        from app.core.config import EmbedderConfig, LLMConfig
         cfg = ProviderConfig(
             base_url="http://localhost:11434",
             llm=LLMConfig(model="llama3.2:latest"),

@@ -41,7 +41,7 @@ def main() -> int:
     provider_name = settings.app.provider
 
     print(f"\n{'='*60}")
-    print(f"  Support Triage Agent -- Provider Smoke Test")
+    print("  Support Triage Agent -- Provider Smoke Test")
     print(f"  Provider : {provider_name}")
     print(f"  Chat     : {settings.provider.llm.model}")
     print(f"  Embed    : {settings.provider.embedder.model}")

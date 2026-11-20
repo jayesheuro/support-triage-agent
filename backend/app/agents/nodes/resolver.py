@@ -10,15 +10,17 @@ Validates citations against retrieved articles and retries if hallucinated artic
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.agents.state import AgentState
 from app.core.logging import get_logger
 from app.core.prompts import load_prompt
 from app.db.enums import TicketStatus
-from app.services.kb.retriever import KBRetriever
 from app.services.providers.base import BaseLLM
 from app.services.providers.factory import get_providers
+
+if TYPE_CHECKING:
+    from app.services.kb.retriever import KBRetriever
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,8 @@ def resolver_node(
 
     # 2. Resolve retriever and retrieve candidate chunks
     if retriever is None:
+        from app.services.kb.retriever import KBRetriever
+
         retriever = KBRetriever.create_default()
 
     subject = state.get("subject", "")
@@ -107,6 +111,23 @@ def resolver_node(
         ticket_subject=subject,
         ticket_body=body,
     )
+
+    # Incorporate Critic revision feedback if this is a revision cycle
+    violations = state.get("critic_violations", [])
+    if violations:
+        violation_lines = [
+            f"- [{v.get('policy_id')}] ({v.get('severity', '').upper()}): {v.get('reason')} (Offending span: \"{v.get('quoted_span')}\")"
+            for v in violations
+        ]
+        revision_feedback = (
+            "\n\n=== COMPLIANCE CRITIC REVISION FEEDBACK ===\n"
+            "Your previous draft was flagged by our compliance critic for violating store policies. "
+            "You MUST rewrite the draft to eliminate all of the following violations while retaining "
+            "empathetic tone and strict [KB-xxx] citations:\n"
+            + "\n".join(violation_lines)
+            + "\nEnsure your new draft complies with all policies.\n"
+        )
+        prompt_text += revision_feedback
 
     messages: list[dict[str, str]] = [{"role": "user", "content": prompt_text}]
 
@@ -158,11 +179,28 @@ def resolver_node(
         },
     )
 
+    draft_history = list(state.get("draft_history", []))
+    new_version = len(draft_history) + 1
+    draft_history.append(
+        {
+            "version": new_version,
+            "body": draft_text,
+            "citations": final_citations,
+            "created_by_node": "resolver" if new_version == 1 else "resolver_revision",
+        }
+    )
+
+    revisions_used = state.get("revisions_used", 0)
+    if violations:
+        revisions_used += 1
+
     return {
         "kb_gap": False,
         "retrieved_chunks": retrieved_data,
         "draft_body": draft_text,
         "citations": final_citations,
+        "draft_history": draft_history,
+        "revisions_used": revisions_used,
         "llm_calls_used": llm_calls_used,
-        "status": TicketStatus.PENDING_REVIEW.value,
+        "status": TicketStatus.DRAFTED.value,
     }

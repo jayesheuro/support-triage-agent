@@ -68,6 +68,7 @@ class AppConfig(BaseModel):
     """Structural application settings from configs/app.yaml."""
 
     provider: str
+    policy_version: str = "shoplite_v1"
     max_llm_calls_per_ticket: int = 6
     max_structured_output_retries: int = 2
     max_revision_loops: int = 1

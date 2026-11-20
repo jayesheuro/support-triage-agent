@@ -8,13 +8,11 @@ Tests listing, uploading, search-testing, deletion, and re-indexing.
 from __future__ import annotations
 
 import io
-from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.kb.vector_store import KBVectorStore
-from tests.fakes import FakeEmbedder
 
 
 @pytest.fixture

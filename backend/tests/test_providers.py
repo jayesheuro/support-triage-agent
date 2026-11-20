@@ -12,10 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.errors import ProviderError, ProviderUnavailableError
+from app.core.errors import ProviderError
 from app.services.providers.base import LLMResponse
 from tests.fakes import FakeEmbedder, FakeLLM
-
 
 # ---------------------------------------------------------------------------
 # FakeLLM unit tests
@@ -158,8 +157,6 @@ class TestFactory:
     def test_factory_unknown_provider_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Factory must raise ConfigError for unknown provider names."""
         from app.core.config import AppConfig
-        from app.core.errors import ConfigError
-        from app.services.providers.factory import get_providers
 
         with pytest.raises(Exception):  # AppConfig validator raises first
             AppConfig(provider="openai")
@@ -193,7 +190,7 @@ def _ollama_available() -> bool:
 @pytest.mark.skipif(not _ollama_available(), reason="Ollama not running")
 class TestOllamaIntegration:
     def test_llm_generate(self) -> None:
-        from app.services.providers.factory import clear_provider_cache, get_llm, get_providers
+        from app.services.providers.factory import clear_provider_cache, get_llm
         clear_provider_cache()
         llm = get_llm()
         result = llm.generate([
@@ -206,7 +203,7 @@ class TestOllamaIntegration:
         clear_provider_cache()
 
     def test_embedder_dimension(self) -> None:
-        from app.services.providers.factory import clear_provider_cache, get_embedder, get_providers
+        from app.services.providers.factory import clear_provider_cache, get_embedder
         clear_provider_cache()
         embedder = get_embedder()
         vec = embedder.embed_query("test embedding")

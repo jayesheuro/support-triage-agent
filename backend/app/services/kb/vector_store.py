@@ -10,17 +10,19 @@ article-level upsert and deletion capabilities.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import lancedb
-import pyarrow as pa
 from pydantic import BaseModel, Field
 
 from app.core.errors import KBDimensionMismatchError, KBError
 from app.core.logging import get_logger
 from app.services.kb.chunkers import KBChunk
+
+if TYPE_CHECKING:
+    import lancedb
+    import pyarrow as pa
 
 logger = get_logger(__name__)
 
@@ -42,6 +44,8 @@ class ArticleSummary(BaseModel):
 
 def _get_schema(dimension: int) -> pa.Schema:
     """Build the canonical PyArrow schema for KB chunks in LanceDB."""
+    import pyarrow as pa
+
     return pa.schema([
         pa.field("id", pa.string()),
         pa.field("article_id", pa.string()),
@@ -73,6 +77,8 @@ class KBVectorStore:
         self._table = None
 
     def _get_db(self) -> lancedb.DBConnection:
+        import lancedb
+
         self.db_path.mkdir(parents=True, exist_ok=True)
         return lancedb.connect(self._db_path_str)
 
@@ -120,14 +126,14 @@ class KBVectorStore:
         # Table does not exist, create it with schema
         schema = _get_schema(dimension)
         self._table = db.create_table(self.table_name, schema=schema)
-        
+
         # Persist metadata
         meta = {
             "embedding_model": model_name,
             "dimension": dimension,
             "table_name": self.table_name,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "articles": {},
         }
         self._write_metadata(meta)
@@ -166,7 +172,7 @@ class KBVectorStore:
         Replace all chunks for article_id with new chunks. Idempotent replacement.
         """
         table = self.get_table()
-        
+
         # 1. Remove existing chunks for this article if present
         try:
             # Escape single quotes in article_id
@@ -197,7 +203,7 @@ class KBVectorStore:
         # 3. Update metadata
         meta = self._read_metadata() or {}
         articles = meta.setdefault("articles", {})
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         articles[article_id] = {
             "title": title,
             "category": category,
@@ -217,7 +223,7 @@ class KBVectorStore:
         """
         table = self.get_table()
         safe_id = article_id.replace("'", "''")
-        
+
         try:
             table.delete(f"article_id = '{safe_id}'")
         except Exception as exc:
@@ -226,7 +232,7 @@ class KBVectorStore:
         meta = self._read_metadata()
         if meta and "articles" in meta and article_id in meta["articles"]:
             del meta["articles"][article_id]
-            meta["updated_at"] = datetime.now(timezone.utc).isoformat()
+            meta["updated_at"] = datetime.now(UTC).isoformat()
             self._write_metadata(meta)
             return True
 
@@ -275,7 +281,7 @@ class KBVectorStore:
             return []
 
         hits = table.search(query_vector).metric("cosine").limit(top_k).to_list()
-        
+
         results: list[dict[str, Any]] = []
         for hit in hits:
             # LanceDB cosine distance: distance in [0, 2], similarity = 1 - distance

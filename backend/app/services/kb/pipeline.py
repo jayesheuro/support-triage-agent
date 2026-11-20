@@ -59,10 +59,10 @@ class KBPipeline:
         """
         settings = get_settings()
         _name, _llm, embedder = get_providers(settings)
-        
+
         backend_root = Path(__file__).resolve().parent.parent.parent.parent
         db_path = backend_root / "data" / "lancedb"
-        
+
         embed_cfg = settings.provider.embedder
         store = KBVectorStore(db_path=db_path)
         store.ensure_table(
@@ -86,7 +86,7 @@ class KBPipeline:
         Articles with identical content hashes are skipped unless force=True.
         """
         start_time = time.perf_counter()
-        
+
         # Ensure table is ready without wiping existing data
         self.vector_store.ensure_table(
             model_name=self.model_name,
@@ -95,7 +95,7 @@ class KBPipeline:
         )
 
         existing_hashes = {} if force else self.vector_store.get_indexed_article_hashes()
-        
+
         indexed_count = 0
         skipped_count = 0
 
@@ -108,7 +108,7 @@ class KBPipeline:
 
             logger.info("Indexing article '%s': '%s'", article.id, article.title)
             chunks: list[KBChunk] = self.chunker.chunk_article(article)
-            
+
             if chunks:
                 texts = [c.text for c in chunks]
                 vectors = self.embedder.embed_documents(texts)

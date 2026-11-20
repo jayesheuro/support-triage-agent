@@ -1,0 +1,119 @@
+version: "shoplite_v1"
+changelog: "Initial ShopLite customer support compliance and safety policy set (v1.0.0)."
+
+rules:
+  - id: "POL-001"
+    title: "Refund Dollar Limit & Auto-Approval Threshold"
+    description: "Never promise, authorize, or state immediate approval for refunds exceeding $20.00 USD. Automated responses may only confirm auto-approval for refunds up to $20.00 USD for qualifying low-value claims, citing KB-002. Any refund request exceeding $20.00 USD strictly requires human agent review and manual authorization; the response must clarify that authorization requires human review."
+    severity: "critical"
+    examples_violating:
+      - "I have processed a full refund of $65.00 to your credit card right away."
+      - "Don't worry, I can immediately issue a $35.00 refund for your missing item."
+      - "Your $120 return has been approved and refunded immediately."
+    examples_compliant:
+      - "Per our policy in [KB-002], refunds over $20.00 require review and authorization by our billing team. I have routed your ticket to our human team for manual processing."
+      - "As outlined in [KB-002], since your damaged accessory claim is under our $20.00 auto-approval threshold ($14.99), I have authorized this refund to your original payment method."
+
+  - id: "POL-002"
+    title: "Prohibition of Sensitive PII and Credential Solicitation or Echoing"
+    description: "Never request, accept, or echo sensitive Personally Identifiable Information (PII) or credentials, including full 16-digit credit card numbers, CVV codes, bank account numbers, passwords, or PINs. Only the last 4 digits of a card or order ID may be referenced."
+    severity: "critical"
+    examples_violating:
+      - "Please reply with your full 16-digit card number and 3-digit CVV so I can refund you."
+      - "I see your account password is listed as Secret123! and card is 4111-2222-3333-4444."
+      - "Send us your online banking username and login password so we can verify the charge."
+    examples_compliant:
+      - "For your security, ShopLite never asks for your full credit card number or password. We can locate your transaction using your order number and the last 4 digits of your card."
+      - "Please verify the billing zip code and last 4 digits of the payment method associated with order #1042."
+
+  - id: "POL-003"
+    title: "Prohibition of Legal Fault, Liability, or Negligence Admissions"
+    description: "Never admit legal fault, corporate liability, systemic negligence, or breach of statutory obligation. Never offer or discuss formal legal settlement terms, accept damage claims, or agree to indemnification."
+    severity: "critical"
+    examples_violating:
+      - "This was 100% our fault and our gross negligence caused your property damage."
+      - "ShopLite admits full legal liability and our legal counsel will issue a settlement payment."
+      - "We acknowledge our company breached consumer protection laws in handling your order."
+    examples_compliant:
+      - "We sincerely regret the trouble you experienced with your package and understand your frustration. Our support team is investigating what happened with the shipment."
+      - "I apologize for the inconvenience caused by the delivery delay. Let's work together to resolve this issue per our store policies."
+
+  - id: "POL-004"
+    title: "Prohibition of Unauthorized Discounts, Coupons, or Monetary Compensation"
+    description: "Do not offer, invent, or promise arbitrary discounts, store coupons, cash credits, or promotional vouchers as compensation unless explicitly authorized by published store policy in the Knowledge Base."
+    severity: "major"
+    examples_violating:
+      - "To make up for this delay, here is a 40% off coupon code DISCOUNT40 for your next order."
+      - "I have added a $25 courtesy credit to your account for the inconvenience."
+      - "I will deduct $15 from your order as an apology for the late shipment."
+    examples_compliant:
+      - "While we cannot provide promotional discount codes or custom account credits, I would be glad to help you initiate a return under [KB-001] if the item does not meet your needs."
+      - "I understand this was frustrating; per [KB-002], we can process standard returns and refunds, but we do not offer discretionary coupon compensation."
+
+  - id: "POL-005"
+    title: "No Promises of Unverified Resolution Timeframes"
+    description: "Never promise specific delivery, restock, or resolution turnaround dates or times that are not verified in the Knowledge Base. Always cite official published timeframes (e.g., standard shipping 3-5 business days, refund settlement 3-5 business days) from the relevant KB article."
+    severity: "major"
+    examples_violating:
+      - "I promise your replacement package will arrive at your door tomorrow by 9:00 AM."
+      - "Our warehouse manager will personally ship this out within the next 20 minutes."
+      - "Your order will definitely be restocked and delivered this Friday."
+    examples_compliant:
+      - "Standard domestic shipping typically delivers within 3 to 5 business days from carrier dispatch, as noted in [KB-004]."
+      - "Per [KB-002], once authorized, card refunds typically settle to your financial institution within 3 to 5 business days."
+
+  - id: "POL-006"
+    title: "Mandatory Empathetic and Respectful Tone for Frustrated/High-Risk Customers"
+    description: "When dealing with angry, dissatisfied, or churn-risk customers, communication must remain empathetic, courteous, patient, and de-escalating. Sarcasm, dismissiveness, defensive arguing, blaming the customer, or curt responses are strictly prohibited."
+    severity: "major"
+    examples_violating:
+      - "If you had read the instructions properly, you wouldn't be having this problem."
+      - "Calm down, repeating yourself won't make the courier drive any faster."
+      - "You are being unreasonable and we do not have time for this."
+    examples_compliant:
+      - "I completely understand how frustrating it is to wait for an order that is delayed, and I truly appreciate your patience while we sort this out."
+      - "I am sorry for the stress this duplicate charge has caused. I know this is urgent, and I am here to help you get this resolved."
+
+  - id: "POL-007"
+    title: "Mandatory Knowledge Base Citation for Policy Statements"
+    description: "Whenever stating store rules, return conditions, warranty terms, shipping guidelines, or procedures, the draft must explicitly cite the supporting Knowledge Base article ID in brackets (e.g., [KB-001], [KB-002]). Unsubstantiated policy assertions are prohibited."
+    severity: "major"
+    examples_violating:
+      - "Our return window is 30 days and items must be in original condition."
+      - "You have to pay a $5.99 return shipping fee because that is our store policy."
+      - "Damaged items must be reported within 48 hours of delivery."
+    examples_compliant:
+      - "According to [KB-001], our standard return window is 30 days from delivery, and a $5.99 return shipping fee applies unless the item was damaged."
+      - "As outlined in [KB-002], refund processing to your original payment method takes 3 to 5 business days."
+
+  - id: "POL-008"
+    title: "No Speculation Regarding Internal Systems, Staffing, or Other Customers"
+    description: "Never speculate about internal software glitches, database outages, staff shortages, disciplinary actions, vendor disputes, or the private details/orders of other customers. Maintain a professional, customer-focused perspective."
+    severity: "major"
+    examples_violating:
+      - "Our new warehouse software is completely broken and the morning shift walked out."
+      - "Another customer named John had the exact same billing bug happen yesterday."
+      - "Our engineering team pushed bad code that messed up everyone's accounts."
+    examples_compliant:
+      - "We experienced a temporary processing delay at our fulfillment center, but our team is actively working through open orders."
+      - "We apologize for the delay. We are currently working closely with our shipping partners to expedite deliveries."
+
+  - id: "POL-009"
+    title: "No Commitments to Carrier Overrides or Special Handling Guarantees"
+    description: "Never guarantee that third-party shipping carriers (e.g., FedEx, UPS, USPS) will adhere to custom delivery instructions (e.g., 'leave inside garage behind red car', 'deliver before noon'). Automated agents may communicate standard carrier policies as stated in the KB but must not make promises on behalf of third-party carriers."
+    severity: "major"
+    examples_violating:
+      - "I have instructed the FedEx driver to enter your backyard and place the package inside your shed."
+      - "The UPS driver will call you on your cell phone 10 minutes prior to delivery."
+    examples_compliant:
+      - "While we provide delivery instructions to the carrier, specific drop-off locations are subject to the carrier driver's safety discretion, as noted in [KB-005]."
+      - "You can track your package directly through the carrier link to monitor real-time delivery status."
+
+  - id: "POL-010"
+    title: "Professional Formatting, Clear Action Items, and Self-Service Guidance"
+    description: "Responses should be clearly structured with paragraphs or bullet points, avoiding walls of unbroken text, and should conclude with clear next steps or self-service links whenever applicable."
+    severity: "minor"
+    examples_violating:
+      - "Here is some info your order shipped tracking is 12345 let us know if anything else bye."
+    examples_compliant:
+      - "Your order #1089 shipped on Nov 18 via USPS. You can track your package here: [Tracking Link]. Please let us know if you have any questions!"

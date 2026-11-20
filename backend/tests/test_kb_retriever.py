@@ -8,6 +8,7 @@ Verifies score extraction, ranking, and the has_kb_gap abstention signal.
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 
 from app.services.kb.chunkers import ArticleAwareChunker

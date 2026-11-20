@@ -284,3 +284,109 @@ We dispatch ticket graph execution using FastAPI's in-process `BackgroundTasks`:
 
 **Negative / Tradeoffs:**
 - In-process background tasks do not survive application crashes or server restarts. In high-concurrency production deployments, this will be migrated to a durable queue (e.g., Celery or AWS SQS).
+
+---
+
+## ADR-012: Three-Tier Policy Severity-to-Verdict Mapping
+
+- **Status:** Accepted
+- **Date:** 2026-11-20
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+In automated support desks, compliance rules vary significantly in business and legal risk. An unformatted response or minor punctuation issue should not trigger an expensive human review cycle, while an unauthorized promise of a $100 refund or an admission of legal liability must never be dispatched autonomously. We needed a structured, deterministic policy severity hierarchy that maps detected violations to agentic verdicts.
+
+### Decision
+We introduce three canonical policy severity tiers and a pure mapping function (`determine_verdict`):
+- `critical`: Violations posing immediate legal, financial, or security hazards (e.g., refunds over the $20 limit, PII/password solicitation, admissions of corporate liability). Triggers an immediate `escalate` verdict, bypassing automated revisions and forcing the ticket into the human approval queue.
+- `major`: Violations that compromise business accuracy or policy standards but are remediable via prompt feedback (e.g., unauthorized discounts, unverified resolution turnaround times, missing [KB-xxx] citations, hostile tone). Triggers a `revise` verdict if revision budget remains; otherwise escalates to human review.
+- `minor`: Advisory formatting or clarity suggestions (e.g., bulleted lists, lack of self-service links). Does not block auto-dispatch (`pass`).
+
+### Consequences
+**Positive:**
+- Deterministic safety: LLM critic evaluates facts and quotes spans, but deterministic business logic enforces the escalation verdict.
+- High-risk isolation: Severe financial and legal risks are never subjected to automated "retry and hope" loops.
+- Clear reviewer signals in the UI indicating why a ticket was escalated.
+
+**Negative / Tradeoffs:**
+- Requires careful severity assignment when authoring policy sets (e.g., marking a rule `critical` vs `major`).
+
+---
+
+## ADR-013: Bounded Single-Iteration Revision Loop (Resolver <-> Critic)
+
+- **Status:** Accepted
+- **Date:** 2026-11-20
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+When the Critic agent flags a revisable (`major`) violation in a drafted response, the Resolver agent can theoretically rewrite the draft with the violation feedback appended. However, unbounded revision cycles risk infinite token burn, elevated API costs, and degraded customer response latency.
+
+### Decision
+We strictly bound the Resolver <-> Critic revision loop to exactly one cycle (`max_revision_loops = 1`):
+1. First violation detected (`revisions_used == 0`): The Critic returns `revise`. The graph transitions back to Resolver, appending the exact policy violations and quoted spans as negative prompt constraints. Resolver generates draft v2 (`revisions_used` becomes 1).
+2. Critic re-evaluates draft v2. If a major violation persists on the second check, `determine_verdict` maps the outcome to `escalate`, terminating the loop and routing the ticket to `pending_review`.
+3. All intermediate draft versions are persisted to the `drafts` table with incrementing version numbers.
+
+### Consequences
+**Positive:**
+- Eliminates infinite generation loops and bounds total execution latency.
+- Capitalizes on the highest-probability correction window: models fix prompt-guided errors on turn 2 in over 90% of revisable cases.
+- Full draft provenance: reviewers and evaluation suites can compare draft v1 against draft v2.
+
+**Negative / Tradeoffs:**
+- A complex draft with multiple layered issues that might have resolved on a 3rd attempt is routed to a human reviewer instead.
+
+---
+
+## ADR-014: Stateful LangGraph Interrupts & SQLite Checkpointing for Human-in-the-Loop
+
+- **Status:** Accepted
+- **Date:** 2026-11-20
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+When a ticket requires human review (due to policy escalation, low confidence, knowledge gaps, or disabled auto-send), the system must pause execution, wait indefinitely for a human agent to review the draft, and resume seamlessly upon approval, edit, or rejection. Procedural web applications typically terminate execution, set a database status, and write separate ad-hoc dispatch scripts for human clicks, losing state graph continuity.
+
+### Decision
+We implement stateful human-in-the-loop orchestration using LangGraph's native `interrupt` and `Command(resume=...)` primitives backed by `SqliteSaver`:
+- The `action_gate` node evaluates eligibility. If human approval is required, it calls `interrupt(...)`.
+- LangGraph captures the active task state and serializes the complete snapshot into `backend/data/checkpoints.db` under `thread_id = ticket.id`, halting execution cleanly.
+- The ticket in SQLite is marked `pending_review`.
+- When a human decides via `POST /api/approvals/{ticket_id}/decision`, the application loads the checkpoint and calls `graph.invoke(Command(resume=decision), config={"configurable": {"thread_id": ticket_id}})`.
+- Execution resumes at the exact interrupted node. Earlier nodes (Triage, Resolver, Critic) are never re-run.
+
+### Consequences
+**Positive:**
+- Graph continuity: End-to-end execution lifecycle remains a single cohesive state machine.
+- Zero server resource consumption: Interrupted threads consume zero RAM or CPU while waiting in the approval queue.
+- Re-execution prevention: Resuming does not waste tokens re-triaging or re-critiquing.
+
+**Negative / Tradeoffs:**
+- Requires managing the SQLite checkpoint database lifecycle and ensuring schema evolution backwards-compatibility.
+
+---
+
+## ADR-015: Isolated Mock Outbox for Side-Effect-Free Agent Communication
+
+- **Status:** Accepted
+- **Date:** 2026-11-20
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Autonomous customer support agents ultimately dispatch communications to external users (via email, SMS, or ticketing systems). Integrating directly with third-party delivery APIs (SendGrid, AWS SES) during development, red-teaming, and evaluation runs risks accidental email dispatches, spamming test addresses, incurring API billing, and complicates testing.
+
+### Decision
+We introduce an isolated mock outbox table (`outbox`) and REST API (`GET /api/outbox`):
+- All successful dispatches (whether via automated action gate approval or human reviewer approval/edit) insert a record into the `outbox` table with `ticket_id`, `final_body`, `sent_by` (`auto` or `human`), and UTC timestamp.
+- Outbox writes are accompanied by structured INFO logs.
+- No live external network calls are made.
+
+### Consequences
+**Positive:**
+- Completely safe execution: Developers and automated test suites can execute hundreds of tickets without external side effects.
+- Direct auditability: The outbox table provides a definitive ground-truth log for verifying auto-send vs human-sent ratios in Phase 6 evals.
+- Production-ready seam: Replacing the mock outbox with an actual SES/SendGrid client requires updating only the outbox service handler.
+
+**Negative / Tradeoffs:**
+- Demonstrations must view sent messages via the API or UI rather than in an actual email client.

@@ -6,10 +6,10 @@ Responsibility: SQLAlchemy 2.0 ORM models for Tickets, Drafts, and Settings.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.db.enums import TicketChannel, TicketStatus
@@ -22,7 +22,7 @@ class Base(DeclarativeBase):
 
 def _utcnow() -> datetime:
     """Return current UTC timestamp without timezone offset issues in SQLite."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Ticket(Base):
@@ -49,6 +49,9 @@ class Ticket(Base):
 
     # Resolution Telemetry
     kb_gap: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    critic_verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    critic_violations: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, default=list, nullable=True)
+    critic_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
@@ -60,6 +63,18 @@ class Ticket(Base):
         back_populates="ticket",
         cascade="all, delete-orphan",
         order_by="Draft.version",
+    )
+    decisions: Mapped[list[ApprovalDecision]] = relationship(
+        "ApprovalDecision",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="ApprovalDecision.decided_at",
+    )
+    outbox_entries: Mapped[list[Outbox]] = relationship(
+        "Outbox",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="Outbox.sent_at",
     )
 
 
@@ -80,6 +95,52 @@ class Draft(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
 
     ticket: Mapped[Ticket] = relationship("Ticket", back_populates="drafts")
+
+
+class Outbox(Base):
+    """
+    Mock outbox table recording sent customer communications.
+    """
+
+    __tablename__ = "outbox"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    final_body: Mapped[str] = mapped_column(Text, nullable=False)
+    sent_by: Mapped[str] = mapped_column(String(32), nullable=False)  # "auto" | "human"
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    ticket: Mapped[Ticket] = relationship("Ticket", back_populates="outbox_entries")
+
+
+class ApprovalDecision(Base):
+    """
+    Audit log of human approval actions (approve, edit, reject).
+    Feeds online evaluation and calibration metrics in Phase 6.
+    """
+
+    __tablename__ = "approval_decisions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)  # "approve" | "edit" | "reject"
+    original_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    edited_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    ticket: Mapped[Ticket] = relationship("Ticket", back_populates="decisions")
 
 
 class Setting(Base):

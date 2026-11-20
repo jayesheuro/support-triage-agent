@@ -8,14 +8,13 @@ Marked with @pytest.mark.integration; automatically skipped if Ollama is not run
 from __future__ import annotations
 
 from pathlib import Path
+
 import httpx
 import pytest
 
 from app.core.config import get_settings
-from app.services.kb.loaders import load_kb_directory
 from app.services.kb.pipeline import KBPipeline
 from app.services.kb.retriever import KBRetriever
-from app.services.providers.factory import get_providers
 
 
 def _is_ollama_ready() -> bool:

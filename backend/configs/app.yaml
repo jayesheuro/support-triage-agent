@@ -2,6 +2,9 @@
 # Change this ONE line to swap providers — no code changes needed.
 provider: ollama
 
+# ── Active Policy Version ───────────────────────────────────────────────────
+policy_version: "shoplite_v1"
+
 # ── LLM call budget ──────────────────────────────────────────────────────────
 # Hard cap enforced in graph state (Phase 3). Breakdown:
 #   triage:   1 call + up to 2 retries on parse failure

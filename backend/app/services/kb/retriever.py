@@ -10,15 +10,17 @@ kb_gap detection for the Phase 3 Resolver agent.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.services.kb.vector_store import KBVectorStore
 from app.services.providers.base import BaseEmbedder
 from app.services.providers.factory import get_providers
+
+if TYPE_CHECKING:
+    from app.services.kb.vector_store import KBVectorStore
 
 logger = get_logger(__name__)
 
@@ -57,11 +59,13 @@ class KBRetriever:
         """Factory creating retriever from active settings and providers."""
         settings = get_settings()
         _name, _llm, embedder = get_providers(settings)
-        
+
         backend_root = Path(__file__).resolve().parent.parent.parent.parent
         db_path = backend_root / "data" / "lancedb"
+        from app.services.kb.vector_store import KBVectorStore
+
         store = KBVectorStore(db_path=db_path)
-        
+
         return cls(
             vector_store=store,
             embedder=embedder,

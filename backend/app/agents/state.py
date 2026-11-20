@@ -39,6 +39,18 @@ class AgentState(TypedDict, total=False):
     kb_gap: bool
     draft_body: str | None
     citations: list[str]
+    draft_history: list[dict[str, Any]]
+
+    # Critic node outputs
+    critic_verdict: str | None
+    critic_violations: list[dict[str, Any]]
+    critic_reasoning: str | None
+
+    # Gate & Human Decision outputs
+    sent_by: str | None
+    final_body: str | None
+    human_decision: dict[str, Any] | None
+    auto_send_enabled: bool
 
     # Iteration & Budget counters
     revisions_used: int

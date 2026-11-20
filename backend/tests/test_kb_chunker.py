@@ -10,8 +10,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.errors import ValidationError
-from app.services.kb.chunkers import ArticleAwareChunker, KBChunk
-from app.services.kb.loaders import KBArticle, parse_article_text
+from app.services.kb.chunkers import ArticleAwareChunker
+from app.services.kb.loaders import parse_article_text
 
 
 def test_parse_valid_frontmatter() -> None:

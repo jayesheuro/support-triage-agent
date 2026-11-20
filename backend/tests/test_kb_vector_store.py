@@ -8,6 +8,7 @@ Verifies dimension consistency enforcement, idempotency, updates, and deletion.
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 
 from app.core.errors import KBDimensionMismatchError
