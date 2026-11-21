@@ -16,6 +16,12 @@ from app.models.tickets import (
     TicketDetailResponse,
     TicketListResponse,
 )
+from app.models.traces import (
+    TicketTraceResponse,
+    TraceRunResponse,
+    TraceSpanResponse,
+    TraceStatsResponse,
+)
 
 __all__ = [
     "ApprovalDecisionRequest",
@@ -29,4 +35,8 @@ __all__ = [
     "TicketCreateResponse",
     "TicketDetailResponse",
     "TicketListResponse",
+    "TicketTraceResponse",
+    "TraceRunResponse",
+    "TraceSpanResponse",
+    "TraceStatsResponse",
 ]

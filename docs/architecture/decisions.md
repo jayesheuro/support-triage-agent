@@ -390,3 +390,89 @@ We introduce an isolated mock outbox table (`outbox`) and REST API (`GET /api/ou
 
 **Negative / Tradeoffs:**
 - Demonstrations must view sent messages via the API or UI rather than in an actual email client.
+
+---
+
+## ADR-016: First-Party SQLite Micro-Tracer vs. Third-Party Observability Platforms (Langfuse / LangSmith)
+
+- **Status:** Accepted
+- **Date:** 2026-11-21
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+In autonomous support triage, every ticket's journey must be inspectable: prompt versions, token consumption, retrieval gaps, policy critic verdicts, and human-in-the-loop interventions. Production agent teams frequently adopt hosted platforms such as Langfuse, LangSmith, or Arize Phoenix. However, introducing an external SaaS or complex multi-container observability daemon introduces network round-trip overhead, requires cloud credentials, risks customer PII transmission to third parties, and breaks zero-infrastructure local reproducibility.
+
+### Decision
+We implement a lightweight, first-party micro-tracer directly in the application layer, persisting telemetry to SQLite:
+- `TraceRun` records top-level execution lifecycles per ticket run.
+- `TraceSpan` records hierarchical node executions, LLM calls (`llm_generate`), zero-duration gates, interrupts, and resume events.
+- Automatic nesting and contextual propagation via Python's `contextvars`.
+- A strict "never-throws" guarantee: any failure in trace persistence logs to standard error but never aborts ticket processing.
+- REST endpoints (`GET /api/tickets/{id}/trace`, `GET /api/traces/stats`) provide the data source for evaluation dashboards and Phase 7 UI.
+
+### Consequences
+**Positive:**
+- Zero infrastructure overhead: runs entirely in-process against local SQLite with zero external network calls or Docker dependencies.
+- Sub-millisecond recording overhead (~0.2ms local write vs. 15-30ms remote network round-trip).
+- Complete data sovereignty: zero customer data or proprietary prompts leave the local environment.
+- Native alignment with custom LangGraph interrupt/resume lifecycles and domain entities.
+
+**Negative / Tradeoffs:**
+- Lacks out-of-the-box hosted web UI with waterfall graphs (addressed via our Phase 7 custom UI).
+- Single-node SQLite write throughput caps scalability under high horizontal concurrency (>1,000 req/sec), at which point an OpenTelemetry exporter to ClickHouse/Langfuse would be introduced.
+
+---
+
+## ADR-017: Privacy-Preserving Span Payload Truncation with Customer Content Flagging
+
+- **Status:** Accepted
+- **Date:** 2026-11-21
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Agent execution traces record raw inputs and outputs at every step, including customer support queries containing personal information (PII) such as customer names, email addresses, order IDs, and payment dispute details. Persisting full payloads in persistent telemetry stores creates major compliance liabilities under GDPR, CCPA, and SOC 2, while expanding database storage requirements.
+
+### Decision
+We establish a privacy-first default for trace payload capture:
+- All input and output excerpts stored in `TraceSpan.input_excerpt` and `TraceSpan.output_excerpt` are truncated to a maximum of 500 characters using `truncate_payload(text, max_len=500)`. Truncated strings append a clear ` ... [truncated]` delimiter.
+- Spans processing untrusted customer text (`triage`, `resolver`) set `is_customer_content = True`.
+- Downstream consumers (such as the Phase 7 UI) utilize this flag to badge customer content, apply role-based access restrictions, or enforce dynamic client-side PII masking.
+- High-frequency application logs at INFO level emit single-line `decision_summary` strings and metadata without logging full customer bodies.
+
+### Consequences
+**Positive:**
+- Drastically reduces PII exposure risk in operational telemetry and trace review dashboards.
+- Bounded database storage footprint: prevents oversized prompt or completion strings from bloating SQLite tables.
+- Preserves high diagnostic value: 500 characters is sufficient to inspect prompt framing, retrieval intent, and drafted message direction.
+
+**Negative / Tradeoffs:**
+- Extremely long customer emails or deeply nested JSON payloads are partially cut off in trace view, requiring reference to the primary ticket table if full text reconstruction is necessary.
+
+---
+
+## ADR-018: OpenTelemetry-Aligned Semantic Conventions for Agentic Tracing
+
+- **Status:** Accepted
+- **Date:** 2026-11-21
+- **Deciders:** Lead AI Engineer & User
+
+### Context
+Telemetry architectures frequently suffer from bespoke, idiosyncratic naming schemes that impede integration with standard observability pipelines and confuse engineers familiar with industry-standard distributed tracing.
+
+### Decision
+We align our first-party trace schema and lifecycle naming with OpenTelemetry (OTel) semantic conventions for Generative AI systems:
+- `TraceRun` maps to the distributed **Trace / Root Span**.
+- `TraceSpan` maps to a standard **Span**, carrying `span_id` and `parent_span_id`.
+- Span types are partitioned into standardized categories: `node` (internal execution units), `llm_call` (external model invocations), `gate` (zero-duration routing checkpoints), `interrupt` (pause events), and `resume` (continuation events).
+- Generative AI attributes mirror OTel conventions: `model`, `tokens_in` (`gen_ai.usage.input_tokens`), `tokens_out` (`gen_ai.usage.output_tokens`), `prompt_name`, `prompt_version`, and `policy_version`.
+- Execution context is propagated across async and nested boundaries using thread-local / async-local context variables, matching OTel Baggage and SpanContext mechanics.
+
+### Consequences
+**Positive:**
+- Intuitive mental model for engineers experienced with OpenTelemetry, Jaeger, or Datadog.
+- Clear future migration path: exporting our first-party spans to an OTLP collector (e.g., OpenTelemetry Collector, Langfuse, Honeycomb) requires only an adapter mapping our SQLite models to OTel protobuf structs.
+- Distinguishes between programmatic nodes, LLM inference, and zero-duration routing gates cleanly.
+
+**Negative / Tradeoffs:**
+- Preserves some domain-specific fields (`decision_summary`, `policy_version`, `is_customer_content`) as top-level table columns rather than a generic JSON attribute dictionary, prioritizing query performance in SQLite over pure generic schema flexibility.
+

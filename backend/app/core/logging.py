@@ -42,6 +42,47 @@ class _JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+class _ContextFilter(logging.Filter):
+    """
+    Injects ticket_id, run_id, and node from active tracing context variables
+    into all log records so every log during graph execution is correlated.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            from app.services.tracing.tracer import (
+                get_current_node_name,
+                get_current_run_id,
+                get_current_ticket_id,
+            )
+
+            if not getattr(record, "ticket_id", None):
+                record.ticket_id = get_current_ticket_id()
+            if not getattr(record, "run_id", None):
+                record.run_id = get_current_run_id()
+            if not getattr(record, "node", None):
+                record.node = get_current_node_name()
+        except Exception:
+            pass
+        return True
+
+
+class _HumanFormatter(logging.Formatter):
+    """Formats log records for console readability with correlated context tags."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        ctx_parts: list[str] = []
+        if getattr(record, "ticket_id", None):
+            ctx_parts.append(str(record.ticket_id))
+        if getattr(record, "node", None):
+            ctx_parts.append(str(record.node))
+        ctx_tag = f" [{':'.join(ctx_parts)}]" if ctx_parts else ""
+
+        orig_msg = record.getMessage()
+        formatted_time = self.formatTime(record, self.datefmt)
+        return f"{formatted_time} | {record.levelname:<8} | {record.name}{ctx_tag} | {orig_msg}"
+
+
 def setup_logging(level: str = "INFO", json_logs: bool = False) -> None:
     """
     Configure root logger. Call once at application startup.
@@ -57,15 +98,12 @@ def setup_logging(level: str = "INFO", json_logs: bool = False) -> None:
     root.handlers.clear()
 
     handler = logging.StreamHandler(sys.stdout)
+    handler.addFilter(_ContextFilter())
+
     if json_logs:
         handler.setFormatter(_JsonFormatter())
     else:
-        handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        )
+        handler.setFormatter(_HumanFormatter(datefmt="%H:%M:%S"))
     root.addHandler(handler)
 
     # Suppress noisy third-party loggers

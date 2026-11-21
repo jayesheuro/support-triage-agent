@@ -18,6 +18,7 @@ class AgentState(TypedDict, total=False):
 
     # Ticket metadata
     ticket_id: str
+    run_id: str | None
     customer_name: str
     channel: str
     subject: str

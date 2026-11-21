@@ -149,8 +149,15 @@ class TestTicketsAPI:
             "You can track package #9988 using the link sent to your email [KB-001].\n\n"
             "Best regards,\nShopLite Support"
         )
+        critic_json = json.dumps(
+            {
+                "verdict": "pass",
+                "violations": [],
+                "overall_reasoning": "Clean draft without violations.",
+            }
+        )
 
-        llm = FakeLLM([triage_json, resolver_text])
+        llm = FakeLLM([triage_json, resolver_text, critic_json])
 
         mock_retriever = MagicMock()
         mock_retriever.retrieve.return_value = [
@@ -181,7 +188,7 @@ class TestTicketsAPI:
             assert final_state.get("category") == "order_status"
             assert final_state.get("priority") == "P2"
             assert final_state.get("citations") == ["KB-001"]
-            assert final_state.get("llm_calls_used") == 2
+            assert final_state.get("llm_calls_used") == 3
 
             # Assert database persistence
             refreshed = db.query(Ticket).filter_by(id=ticket_id).first()

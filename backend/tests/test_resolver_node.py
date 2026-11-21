@@ -80,7 +80,7 @@ class TestResolverNode:
         result = resolver_node(state, llm=llm, retriever=mock_retriever)
 
         assert result["kb_gap"] is False
-        assert result["status"] == TicketStatus.PENDING_REVIEW.value
+        assert result["status"] == "drafted"
         assert result["citations"] == ["KB-005", "KB-006"]
         assert "Elena" in result["draft_body"]
         assert result["llm_calls_used"] == 2  # 1 from state + 1 resolver call

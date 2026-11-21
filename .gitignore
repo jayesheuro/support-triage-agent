@@ -3,8 +3,8 @@
 
 # Backend runtime data
 backend/data/lancedb/
-backend/data/app.db
-backend/data/checkpoints.db
+backend/data/app.db*
+backend/data/checkpoints.db*
 backend/eval/reports/*
 !backend/eval/reports/.gitkeep
 

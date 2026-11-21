@@ -58,3 +58,22 @@ class TicketChannel(str, Enum):
     EMAIL = "email"
     CHAT = "chat"
     API = "api"
+
+
+class SpanType(str, Enum):
+    """Classification of trace spans in the agent graph."""
+
+    NODE = "node"
+    LLM_CALL = "llm_call"
+    GATE = "gate"
+    INTERRUPT = "interrupt"
+    RESUME = "resume"
+
+
+class SpanStatus(str, Enum):
+    """Execution outcome status of a trace span."""
+
+    OK = "ok"
+    RETRIED = "retried"
+    FAILED = "failed"
+

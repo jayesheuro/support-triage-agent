@@ -86,6 +86,16 @@ def route_after_triage(state: AgentState) -> str:
     settings = get_settings()
     threshold = settings.taxonomy.confidence_threshold
 
+    from app.db.enums import SpanType
+    from app.services.tracing.tracer import get_tracer
+
+    tracer = get_tracer()
+    tracer.record_event(
+        name="confidence_gate",
+        span_type=SpanType.GATE.value,
+        decision_summary=f"passed={confidence >= threshold} conf={confidence:.2f} threshold={threshold:.2f}",
+    )
+
     if confidence < threshold:
         logger.info(
             "Confidence gate triggered: confidence below threshold; skipping resolver",
@@ -200,6 +210,14 @@ def confidence_abstain_node(state: AgentState) -> dict[str, Any]:
     Node invoked when triage confidence falls below the taxonomy threshold.
     Bypasses resolver drafting and routes ticket directly to human review.
     """
+    from app.db.enums import SpanType
+    from app.services.tracing.tracer import get_tracer
+
+    get_tracer().record_event(
+        name="confidence_abstain",
+        span_type=SpanType.NODE.value,
+        decision_summary="status=pending_review (low confidence)",
+    )
     return {
         "status": TicketStatus.PENDING_REVIEW.value,
         "draft_body": None,
@@ -229,6 +247,19 @@ def action_gate_node(state: AgentState) -> dict[str, Any]:
         auto_send_enabled=bool(auto_send_enabled),
     )
 
+    from app.db.enums import SpanType
+    from app.services.tracing.tracer import get_tracer
+
+    tracer = get_tracer()
+    tracer.record_event(
+        name="action_gate",
+        span_type=SpanType.GATE.value,
+        decision_summary=(
+            f"can_auto_send={can_auto_send} verdict={state.get('critic_verdict')} "
+            f"cat={state.get('category')} allowlisted={can_auto_send}"
+        ),
+    )
+
     if can_auto_send:
         logger.info(
             "Action gate approved auto-send",
@@ -248,6 +279,12 @@ def action_gate_node(state: AgentState) -> dict[str, Any]:
             "category": state.get("category"),
             "critic_verdict": state.get("critic_verdict"),
         },
+    )
+
+    tracer.record_event(
+        name="interrupt",
+        span_type=SpanType.INTERRUPT.value,
+        decision_summary="halted for human approval in approval queue",
     )
 
     human_response = interrupt(
@@ -396,8 +433,14 @@ def run_ticket_graph(
         else is_auto_send_enabled(db)
     )
 
+    from app.services.tracing.tracer import get_tracer
+
+    tracer = get_tracer()
+    run_id = tracer.start_run(ticket_id=ticket.id, db=db)
+
     initial_state: AgentState = {
         "ticket_id": ticket.id,
+        "run_id": run_id,
         "customer_name": ticket.customer_name,
         "channel": ticket.channel,
         "subject": ticket.subject,
@@ -509,6 +552,7 @@ def run_ticket_graph(
 
     db.commit()
     db.refresh(ticket)
+    tracer.finalize_run(final_status=ticket.status, run_id=run_id)
 
     logger.info(
         "Agent graph step finished for ticket",
@@ -553,6 +597,26 @@ def resume_ticket_graph(
 
     if checkpointer is None:
         checkpointer = get_checkpointer()
+
+    from app.db.enums import SpanType
+    from app.db.models import TraceRun
+    from app.services.tracing.tracer import get_tracer
+
+    tracer = get_tracer()
+    latest_run = (
+        db.query(TraceRun)
+        .filter_by(ticket_id=ticket.id)
+        .order_by(TraceRun.started_at.desc())
+        .first()
+    )
+    active_run_id = latest_run.run_id if latest_run else None
+    active_run_id = tracer.start_run(ticket_id=ticket.id, run_id=active_run_id, db=db)
+
+    tracer.record_event(
+        name="resume",
+        span_type=SpanType.RESUME.value,
+        decision_summary=f"resumed action={action}",
+    )
 
     graph = create_agent_graph(checkpointer=checkpointer)
     config = {"configurable": {"thread_id": ticket.id}}
@@ -620,5 +684,6 @@ def resume_ticket_graph(
 
     db.commit()
     db.refresh(ticket)
+    tracer.finalize_run(final_status=ticket.status, run_id=active_run_id)
 
     return final_state

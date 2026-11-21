@@ -31,3 +31,8 @@ auto_send_enabled: false
 
 # ── App version (returned by /api/health) ────────────────────────────────────
 version: "0.1.0"
+
+# ── Observability & Cost Modeling (Phase 5) ──────────────────────────────────
+# Baseline Gemini 2.0 Flash pricing per 1,000,000 tokens (USD)
+gemini_cost_per_million_input_tokens: 0.10
+gemini_cost_per_million_output_tokens: 0.40

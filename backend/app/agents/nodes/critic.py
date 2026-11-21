@@ -133,8 +133,18 @@ def critic_node(
     revisions_used = state.get("revisions_used", 0)
     draft_body = state.get("draft_body")
 
+    from app.db.enums import SpanStatus, SpanType
+    from app.services.tracing.tracer import get_tracer
+
+    tracer = get_tracer()
+
     # If there is no draft (e.g. low confidence or kb gap), critic cannot review
     if not draft_body:
+        tracer.record_event(
+            name="critic",
+            span_type=SpanType.NODE.value,
+            decision_summary="skipped (no draft)",
+        )
         logger.info(
             "Critic node skipped: no draft_body present in state",
             extra={"ticket_id": ticket_id},
@@ -147,6 +157,12 @@ def critic_node(
 
     # 1. Budget enforcement check
     if llm_calls_used >= max_llm_calls:
+        tracer.record_event(
+            name="critic",
+            span_type=SpanType.NODE.value,
+            status=SpanStatus.FAILED.value,
+            decision_summary=f"budget_exceeded {llm_calls_used}/{max_llm_calls}",
+        )
         logger.error(
             "LLM call budget exceeded before critic node",
             extra={"ticket_id": ticket_id, "used": llm_calls_used, "max": max_llm_calls},
@@ -184,55 +200,71 @@ def critic_node(
         draft_body=draft_body,
     )
 
-    # 4. Call structured LLM with retry loop and schema validation
-    schema = get_critic_schema(policy_set.rule_ids)
+    with tracer.span(
+        name="critic",
+        span_type=SpanType.NODE.value,
+        prompt_name="critic",
+        prompt_version=prompt_template.version,
+        policy_version=policy_set.version,
+        is_customer_content=False,
+        input_excerpt=draft_body,
+    ) as span_ctx:
+        # 4. Call structured LLM with retry loop and schema validation
+        schema = get_critic_schema(policy_set.rule_ids)
 
-    try:
-        output, attempts = call_structured(
-            llm=llm,
-            prompt=prompt_text,
-            schema=schema,
-            max_retries=max_retries,
-            return_metadata=True,
-            temperature=0.0,
+        try:
+            output, attempts = call_structured(
+                llm=llm,
+                prompt=prompt_text,
+                schema=schema,
+                max_retries=max_retries,
+                return_metadata=True,
+                temperature=0.0,
+            )
+            llm_calls_used += attempts
+            if attempts > 1:
+                span_ctx.set_retried(retry_count=attempts - 1)
+        except Exception as exc:
+            span_ctx.status = SpanStatus.FAILED.value
+            span_ctx.set_decision(f"critic_failed error={exc}")
+            logger.error(
+                "Critic node structured call failed after retries",
+                extra={"ticket_id": ticket_id, "error": str(exc)},
+            )
+            return {
+                "critic_verdict": "escalate",
+                "critic_violations": [],
+                "critic_reasoning": f"Critic evaluation failed: {exc}",
+                "llm_calls_used": llm_calls_used + max_retries + 1,
+                "error": str(exc),
+            }
+
+        # 5. Enforce deterministic business logic on verdict mapping
+        canonical_verdict = determine_verdict(
+            violations=output.violations,
+            revisions_used=revisions_used,
+            max_revision_loops=max_revision_loops,
         )
-        llm_calls_used += attempts
-    except Exception as exc:
-        logger.error(
-            "Critic node structured call failed after retries",
-            extra={"ticket_id": ticket_id, "error": str(exc)},
+
+        violations_data = [v.model_dump() for v in output.violations]
+        summary = f"verdict={canonical_verdict} violations={len(violations_data)}"
+        span_ctx.set_decision(summary)
+        span_ctx.output_excerpt = f"{summary} rationale={output.overall_reasoning}"
+
+        logger.info(
+            "Critic evaluation completed",
+            extra={
+                "ticket_id": ticket_id,
+                "verdict": canonical_verdict,
+                "violations_count": len(violations_data),
+                "revisions_used": revisions_used,
+                "llm_calls_used": llm_calls_used,
+            },
         )
+
         return {
-            "critic_verdict": "escalate",
-            "critic_violations": [],
-            "critic_reasoning": f"Critic evaluation failed: {exc}",
-            "llm_calls_used": llm_calls_used + max_retries + 1,
-            "error": str(exc),
-        }
-
-    # 5. Enforce deterministic business logic on verdict mapping
-    canonical_verdict = determine_verdict(
-        violations=output.violations,
-        revisions_used=revisions_used,
-        max_revision_loops=max_revision_loops,
-    )
-
-    violations_data = [v.model_dump() for v in output.violations]
-
-    logger.info(
-        "Critic evaluation completed",
-        extra={
-            "ticket_id": ticket_id,
-            "verdict": canonical_verdict,
-            "violations_count": len(violations_data),
-            "revisions_used": revisions_used,
+            "critic_verdict": canonical_verdict,
+            "critic_violations": violations_data,
+            "critic_reasoning": output.overall_reasoning,
             "llm_calls_used": llm_calls_used,
-        },
-    )
-
-    return {
-        "critic_verdict": canonical_verdict,
-        "critic_violations": violations_data,
-        "critic_reasoning": output.overall_reasoning,
-        "llm_calls_used": llm_calls_used,
-    }
+        }

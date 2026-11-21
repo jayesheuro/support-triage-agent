@@ -76,6 +76,8 @@ class AppConfig(BaseModel):
     confidence_threshold: float = 0.70
     auto_send_enabled: bool = False
     version: str = "0.1.0"
+    gemini_cost_per_million_input_tokens: float = 0.10
+    gemini_cost_per_million_output_tokens: float = 0.40
 
     @field_validator("provider")
     @classmethod

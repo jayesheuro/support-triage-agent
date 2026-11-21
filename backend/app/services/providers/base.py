@@ -107,20 +107,40 @@ class BaseLLM(ABC):
     def _generate_with_retry(
         self, messages: list[dict[str, str]], **kwargs: object
     ) -> LLMResponse:
-        """Retry-wrapped call to the concrete implementation."""
+        """Retry-wrapped call to the concrete implementation with first-party tracing."""
+        from app.db.enums import SpanType
+        from app.services.tracing.tracer import get_tracer
+
         t0 = time.monotonic()
+        tracer = get_tracer()
+        last_msg = messages[-1].get("content", "") if messages else ""
+
         try:
-            result = self._generate_impl(messages, **kwargs)
-            result.latency_ms = (time.monotonic() - t0) * 1000
-            logger.debug(
-                "LLM generate OK",
-                extra={
-                    "model": result.model_name,
-                    "total_tokens": result.total_tokens,
-                    "latency_ms": round(result.latency_ms, 1),
-                },
-            )
-            return result
+            with tracer.span(
+                name="llm_generate",
+                span_type=SpanType.LLM_CALL.value,
+                input_excerpt=last_msg,
+            ) as span_ctx:
+                result = self._generate_impl(messages, **kwargs)
+                result.latency_ms = (time.monotonic() - t0) * 1000
+
+                span_ctx.model = result.model_name
+                span_ctx.tokens_in = result.prompt_tokens
+                span_ctx.tokens_out = result.completion_tokens
+                span_ctx.output_excerpt = result.text
+                span_ctx.set_decision(
+                    f"model={result.model_name} in={result.prompt_tokens} out={result.completion_tokens}"
+                )
+
+                logger.debug(
+                    "LLM generate OK",
+                    extra={
+                        "model": result.model_name,
+                        "total_tokens": result.total_tokens,
+                        "latency_ms": round(result.latency_ms, 1),
+                    },
+                )
+                return result
         except (ProviderTimeoutError, ProviderRateLimitError, ProviderUnavailableError):
             raise  # let tenacity retry
         except ProviderError:

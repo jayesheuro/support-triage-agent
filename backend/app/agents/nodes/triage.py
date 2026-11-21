@@ -100,63 +100,84 @@ def triage_node(state: AgentState, llm: BaseLLM | None = None) -> dict[str, Any]
     )
 
     # 4. Invoke LLM via structured output helper
-    try:
-        output, attempts = call_structured(
-            llm=llm,
-            prompt=prompt_text,
-            schema=TriageOutput,
-            max_retries=2,
-            return_metadata=True,
-            max_tokens=150,
-        )
-        llm_calls_used += attempts
+    from app.db.enums import SpanStatus, SpanType
+    from app.services.tracing.tracer import get_tracer
 
-        # 5. Domain rule: Escalate to P1 on high churn risk OR (angry + refund_billing)
-        assigned_priority = output.priority.upper()
-        if output.churn_risk.lower() == "high" or (
-            output.sentiment.lower() == "angry" and output.category.lower() == "refund_billing"
-        ):
-            assigned_priority = TicketPriority.P1.value
+    tracer = get_tracer()
+    with tracer.span(
+        name="triage",
+        span_type=SpanType.NODE.value,
+        prompt_name="triage",
+        prompt_version=prompt_template.version,
+        is_customer_content=True,
+        input_excerpt=state.get("body"),
+    ) as span_ctx:
+        try:
+            output, attempts = call_structured(
+                llm=llm,
+                prompt=prompt_text,
+                schema=TriageOutput,
+                max_retries=2,
+                return_metadata=True,
+                max_tokens=150,
+            )
+            llm_calls_used += attempts
 
-        logger.info(
-            "Triage completed successfully",
-            extra={
-                "ticket_id": ticket_id,
-                "category": output.category,
+            # 5. Domain rule: Escalate to P1 on high churn risk OR (angry + refund_billing)
+            assigned_priority = output.priority.upper()
+            if output.churn_risk.lower() == "high" or (
+                output.sentiment.lower() == "angry" and output.category.lower() == "refund_billing"
+            ):
+                assigned_priority = TicketPriority.P1.value
+
+            summary = f"category={output.category.lower()} prio={assigned_priority} conf={output.confidence:.2f}"
+            span_ctx.set_decision(summary)
+            span_ctx.output_excerpt = summary
+            if attempts > 1:
+                span_ctx.set_retried(retry_count=attempts - 1)
+
+            logger.info(
+                "Triage completed successfully",
+                extra={
+                    "ticket_id": ticket_id,
+                    "category": output.category,
+                    "priority": assigned_priority,
+                    "confidence": output.confidence,
+                    "sentiment": output.sentiment,
+                    "churn_risk": output.churn_risk,
+                    "attempts": attempts,
+                    "llm_calls_used": llm_calls_used,
+                },
+            )
+
+            return {
+                "category": output.category.lower(),
                 "priority": assigned_priority,
+                "sentiment": output.sentiment.lower(),
+                "churn_risk": output.churn_risk.lower(),
                 "confidence": output.confidence,
-                "sentiment": output.sentiment,
-                "churn_risk": output.churn_risk,
-                "attempts": attempts,
+                "triage_reasoning": output.reasoning,
                 "llm_calls_used": llm_calls_used,
-            },
-        )
+                "status": TicketStatus.TRIAGING.value,
+            }
 
-        return {
-            "category": output.category.lower(),
-            "priority": assigned_priority,
-            "sentiment": output.sentiment.lower(),
-            "churn_risk": output.churn_risk.lower(),
-            "confidence": output.confidence,
-            "triage_reasoning": output.reasoning,
-            "llm_calls_used": llm_calls_used,
-            "status": TicketStatus.TRIAGING.value,
-        }
-
-    except StructuredOutputError as exc:
-        llm_calls_used += exc.attempts
-        logger.error(
-            "Triage failed after structured retry exhaustion; routing to untriaged",
-            extra={
-                "ticket_id": ticket_id,
-                "attempts": exc.attempts,
-                "error": str(exc),
+        except StructuredOutputError as exc:
+            llm_calls_used += exc.attempts
+            span_ctx.status = SpanStatus.FAILED.value
+            span_ctx.retry_count = exc.attempts
+            span_ctx.set_decision(f"parse_failed_untriaged attempts={exc.attempts}")
+            logger.error(
+                "Triage failed after structured retry exhaustion; routing to untriaged",
+                extra={
+                    "ticket_id": ticket_id,
+                    "attempts": exc.attempts,
+                    "error": str(exc),
+                    "llm_calls_used": llm_calls_used,
+                },
+            )
+            return {
+                "status": TicketStatus.UNTRIAGED.value,
+                "confidence": 0.0,
                 "llm_calls_used": llm_calls_used,
-            },
-        )
-        return {
-            "status": TicketStatus.UNTRIAGED.value,
-            "confidence": 0.0,
-            "llm_calls_used": llm_calls_used,
-            "error": f"Structured triage parsing failed: {exc}",
-        }
+                "error": f"Structured triage parsing failed: {exc}",
+            }
